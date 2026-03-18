@@ -52,4 +52,32 @@ elseif ($action === 'reset_password') {
         echo json_encode(["success" => false, "message" => "Account not found."]);
     }
 }
+elseif ($action === 'register') {
+    $username = trim($db->real_escape_string($data['username']));
+    $password = $data['password'];
+
+    if (strlen($username) < 3) {
+        echo json_encode(["success" => false, "message" => "Username must be at least 3 characters."]);
+        exit;
+    }
+    if (strlen($password) < 6) {
+        echo json_encode(["success" => false, "message" => "Password must be at least 6 characters."]);
+        exit;
+    }
+
+    // Check if username already exists
+    $check = $db->query("SELECT id FROM users WHERE username = '$username'");
+    if ($check->num_rows > 0) {
+        echo json_encode(["success" => false, "message" => "Username already taken. Choose another."]);
+        exit;
+    }
+
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+    $insert = $db->query("INSERT INTO users (username, password) VALUES ('$username', '$hashedPassword')");
+    if ($insert) {
+        echo json_encode(["success" => true, "message" => "Account created successfully!"]);
+    } else {
+        echo json_encode(["success" => false, "message" => "Failed to create account. Please try again."]);
+    }
+}
 ?>

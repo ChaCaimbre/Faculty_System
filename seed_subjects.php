@@ -11,8 +11,8 @@ $subjects = [
     ['IT-101', 'Information Technology Fundamentals with Software Application', 2],
     ['IT-101L', 'Information Technology Fundamentals with Software Application (Laboratory)', 1],
     ['IT-102', 'Accounting Principle', 3],
-    ['IT-103', 'Computer Programming I – Java', 2],
-    ['IT-103L', 'Computer Programming I – Java (Laboratory)', 1],
+    ['IT-103', 'Computer Programming I - Java', 2],
+    ['IT-103L', 'Computer Programming I - Java (Laboratory)', 1],
     ['IT-106', 'Introduction to Computing', 3],
 
     // FIRST YEAR - 2nd Sem
@@ -23,8 +23,8 @@ $subjects = [
     ['IT-104', 'Discrete Mathematics', 3],
     ['IT-107', 'Multimedia System', 2],
     ['IT-107L', 'Multimedia System (Laboratory)', 1],
-    ['IT-108', 'Programming II – Python', 2],
-    ['IT-108L', 'Programming II – Python (Laboratory)', 1],
+    ['IT-108', 'Programming II - Python', 2],
+    ['IT-108L', 'Programming II - Python (Laboratory)', 1],
     ['IT-130', 'Computer Hardware Repair and Maintenance', 2],
     ['IT-130L', 'Computer Hardware Repair and Maintenance (Laboratory)', 1],
 
@@ -32,16 +32,16 @@ $subjects = [
     ['GE-105', 'Purposive Communication', 3],
     ['GE-113', 'Living in the IT Era (Elective)', 3],
     ['PATHFit-3', 'Physical Activities towards Health & Fitness 3 (Sports)', 2],
-    ['IT-109', 'IT Elective I – Platform Technologies', 2],
-    ['IT-109L', 'IT Elective I – Platform Technologies (Laboratory)', 1],
+    ['IT-109', 'IT Elective I - Platform Technologies', 2],
+    ['IT-109L', 'IT Elective I - Platform Technologies (Laboratory)', 1],
     ['IT-110', 'Data Structure and Algorithms', 2],
     ['IT-110L', 'Data Structure and Algorithms (Laboratory)', 1],
     ['IT-111', 'Fundamentals of Database System', 2],
     ['IT-111L', 'Fundamentals of Database System (Laboratory)', 1],
-    ['IT-113', 'CISCO I – Networking Fundamentals', 2],
-    ['IT-113L', 'CISCO I – Networking Fundamentals (Laboratory)', 1],
-    ['IT-114', 'IT Elective II – Object Oriented Programming', 2],
-    ['IT-114L', 'IT Elective II – Object Oriented Programming (Laboratory)', 1],
+    ['IT-113', 'CISCO I - Networking Fundamentals', 2],
+    ['IT-113L', 'CISCO I - Networking Fundamentals (Laboratory)', 1],
+    ['IT-114', 'IT ELECTIVE II - Objective Oriented Programming', 2],
+    ['IT-114L', 'IT ELECTIVE II - Objective Oriented Programming (Laboratory)', 1],
 
     // SECOND YEAR - 2nd Sem
     ['GE-106', 'Art Appreciation', 3],
@@ -52,8 +52,8 @@ $subjects = [
     ['IT-112L', 'Integrative Programming and Technologies (Laboratory)', 1],
     ['IT-115', 'Introduction to Human Computer Interaction', 2],
     ['IT-115L', 'Introduction to Human Computer Interaction (Laboratory)', 1],
-    ['IT-116', 'CISCO II – Routing and Switching Essential', 2],
-    ['IT-116L', 'CISCO II – Routing and Switching Essential (Laboratory)', 1],
+    ['IT-116', 'CISCO II - Routing and Switching Essential', 2],
+    ['IT-116L', 'CISCO II - Routing and Switching Essential (Laboratory)', 1],
     ['IT-120', 'Geographic Information Systems', 2],
     ['IT-120L', 'Geographic Information Systems (Laboratory)', 1],
 
@@ -62,8 +62,8 @@ $subjects = [
     ['GE-119', 'Philippine Popular Culture (Elective)', 3],
     ['IT-117', 'System Integration and Architecture I', 2],
     ['IT-117L', 'System Integration and Architecture I (Laboratory)', 1],
-    ['IT-119', 'IT Elective IV – Web Systems and Technologies', 2],
-    ['IT-119L', 'IT Elective IV – Web Systems and Technologies (Laboratory)', 1],
+    ['IT-119', 'IT Elective IV - Web Systems and Technologies', 2],
+    ['IT-119L', 'IT Elective IV - Web Systems and Technologies (Laboratory)', 1],
     ['IT-121', 'Information Management I', 2],
     ['IT-121L', 'Information Management I (Laboratory)', 1],
     ['IT-122', 'System Analysis and Design', 2],
@@ -86,8 +86,8 @@ $subjects = [
 
     // FOURTH YEAR - 1st Sem
     ['GE-129', 'Filipino sa Antas Tersyarya sa Iba\'t-Ibang Disiplina', 3],
-    ['IT-123', 'IT Elective V – System Integration and Architecture II', 2],
-    ['IT-123L', 'IT Elective V – System Integration and Architecture II (Laboratory)', 1],
+    ['IT-123', 'IT Elective V - System Integration and Architecture II', 2],
+    ['IT-123L', 'IT Elective V - System Integration and Architecture II (Laboratory)', 1],
     ['IT-131', 'Seminars and Fieldtrip', 3],
     ['IT-132', 'Information Assurance and Security II', 2],
     ['IT-132L', 'Information Assurance and Security II (Laboratory)', 1],
@@ -95,7 +95,7 @@ $subjects = [
     ['IT-133L', 'Capstone Project 2 (Laboratory)', 1],
 
     // FOURTH YEAR - 2nd Sem
-    ['IT-134', 'Practicum (486 hours)', 6],
+    ['IT-134', 'Practicum - 486 hours', 6],
 
     // EXTRAS from previous requests
     ['TOUR-101L', 'TOUR-101L', 3]

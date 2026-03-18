@@ -3,13 +3,13 @@ require_once 'config.php';
 $db = getDB();
 
 $rooms = [
-    'COMPLAB1',
-    'COMPLAB2',
-    'COMPLAB3',
-    'COMPLAB4',
-    'COMPLAB5 (CON 103)',
-    'COMPLAB6 (CON 104)',
-    'COMPLAB7 (CON 105)',
+    'COMLAB1',
+    'COMLAB2',
+    'COMLAB3',
+    'COMLAB4',
+    'COMLAB5 (CON 103)',
+    'COMLAB6 (CON 104)',
+    'COMLAB7 (CON 105)',
     'CHS (CON 101)',
     'CISCO (CON 102)'
 ];

@@ -1,0 +1,10 @@
+CREATE TABLE `subjects` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `code` varchar(20) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `units` int DEFAULT '3',
+  `user_id` int DEFAULT NULL,
+  `curriculum_id` int DEFAULT '1',
+  `term_id` int DEFAULT '1',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=41 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci

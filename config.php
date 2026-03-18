@@ -24,6 +24,59 @@ function getDB()
         // Run initialization directly using this connection
         runInitQueries($conn);
     }
+    // Auto-migrate new columns
+    $colCheck1 = $conn->query("SHOW COLUMNS FROM users LIKE 'display_name'");
+    if ($colCheck1->num_rows === 0) {
+        $conn->query("ALTER TABLE users ADD COLUMN display_name VARCHAR(100) DEFAULT NULL");
+    }
+    $colCheck2 = $conn->query("SHOW COLUMNS FROM users LIKE 'profile_picture'");
+    if ($colCheck2->num_rows === 0) {
+        $conn->query("ALTER TABLE users ADD COLUMN profile_picture VARCHAR(255) DEFAULT NULL");
+    }
+
+    // --- Academic Term and Curriculum Migration ---
+    $conn->query("CREATE TABLE IF NOT EXISTS academic_terms (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        is_active TINYINT(1) DEFAULT 0,
+        user_id INT DEFAULT NULL
+    )");
+    
+    $conn->query("CREATE TABLE IF NOT EXISTS curricula (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        user_id INT DEFAULT NULL
+    )");
+
+    // Ensure a default term exists
+    $termCheck = $conn->query("SELECT id FROM academic_terms LIMIT 1");
+    if ($termCheck->num_rows === 0) {
+        $conn->query("INSERT INTO academic_terms (name, is_active, user_id) VALUES ('1st Semester 2024-2025', 1, 1)");
+    }
+
+    // Ensure a default curriculum exists
+    $currCheck = $conn->query("SELECT id FROM curricula LIMIT 1");
+    if ($currCheck->num_rows === 0) {
+        $conn->query("INSERT INTO curricula (name, user_id) VALUES ('Standard Curriculum', 1)");
+    }
+
+    $tid = $conn->query("SHOW COLUMNS FROM schedules LIKE 'term_id'");
+    if ($tid->num_rows === 0) {
+        $conn->query("ALTER TABLE schedules ADD COLUMN term_id INT DEFAULT 1");
+        $conn->query("UPDATE schedules SET term_id = 1 WHERE term_id IS NULL");
+    }
+
+    $cid = $conn->query("SHOW COLUMNS FROM subjects LIKE 'curriculum_id'");
+    if ($cid->num_rows === 0) {
+        $conn->query("ALTER TABLE subjects ADD COLUMN curriculum_id INT DEFAULT 1");
+        $conn->query("UPDATE subjects SET curriculum_id = 1 WHERE curriculum_id IS NULL");
+    }
+
+    $stid = $conn->query("SHOW COLUMNS FROM subjects LIKE 'term_id'");
+    if ($stid->num_rows === 0) {
+        $conn->query("ALTER TABLE subjects ADD COLUMN term_id INT DEFAULT 1");
+        $conn->query("UPDATE subjects SET term_id = 1 WHERE term_id IS NULL");
+    }
 
     return $conn;
 }

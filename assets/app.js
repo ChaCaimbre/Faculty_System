@@ -1,6 +1,9 @@
+// Global State
+window.activeTermId = localStorage.getItem('activeTermId') || '1';
+
 // Auth State Management
 async function checkAuth() {
-    startClock(); // Start immediately so user sees "life"
+    startClock();
     try {
         const res = await fetch('api/auth.php?action=check');
         const data = await res.json();
@@ -8,9 +11,12 @@ async function checkAuth() {
             document.body.classList.add('logged-in');
             document.body.classList.remove('logged-out');
 
-            // Load components as Promises to avoid blocking
+            // Initialize term data and UI
+            await syncAcademicTerms();
+            
             loadCounts();
             showSection('home');
+            loadUserProfile();
         } else {
             document.body.classList.add('logged-out');
             document.body.classList.remove('logged-in');
@@ -35,6 +41,24 @@ document.querySelector('.back-to-login')?.addEventListener('click', () => {
     if(formTitle) formTitle.textContent = 'Login';
     document.getElementById('forgotError').style.display = 'none';
     document.getElementById('forgotSuccess').style.display = 'none';
+});
+
+// Show Register Form
+document.getElementById('showRegisterLink')?.addEventListener('click', () => {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'block';
+    const formTitle = document.getElementById('formTitle');
+    if(formTitle) formTitle.textContent = 'Create Account';
+});
+
+// Back to Login from Register
+document.getElementById('backToLoginFromRegister')?.addEventListener('click', () => {
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+    const formTitle = document.getElementById('formTitle');
+    if(formTitle) formTitle.textContent = 'Login';
+    document.getElementById('registerError').style.display = 'none';
+    document.getElementById('registerSuccess').style.display = 'none';
 });
 
 // Reset Password Submission
@@ -83,6 +107,52 @@ document.getElementById('forgotPasswordForm')?.addEventListener('submit', async 
     }
 });
 
+// Register Form Submission
+document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const regUsername = document.getElementById('reg_username').value.trim();
+    const regPassword = document.getElementById('reg_password').value;
+    const regConfirm  = document.getElementById('reg_confirm_password').value;
+    const errObj  = document.getElementById('registerError');
+    const succObj = document.getElementById('registerSuccess');
+
+    errObj.style.display  = 'none';
+    succObj.style.display = 'none';
+
+    if (regPassword !== regConfirm) {
+        errObj.textContent = "Passwords do not match.";
+        errObj.style.display = 'block';
+        return;
+    }
+
+    try {
+        const res = await fetch('api/auth.php?action=register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: regUsername, password: regPassword })
+        });
+        const data = await res.json();
+        if (data.success) {
+            succObj.textContent = "Account created! You can now log in.";
+            succObj.style.display = 'block';
+            document.getElementById('registerForm').reset();
+            // Auto redirect to login after 2s
+            setTimeout(() => {
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('formTitle').textContent = 'Login';
+                succObj.style.display = 'none';
+            }, 2000);
+        } else {
+            errObj.textContent = data.message || "Registration failed.";
+            errObj.style.display = 'block';
+        }
+    } catch(err) {
+        errObj.textContent = "Network error. Please try again.";
+        errObj.style.display = 'block';
+    }
+});
+
 // Login
 document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -104,6 +174,16 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
         err.style.display = 'block';
     }
 });
+
+// Utility: Format time to 12-hour
+function formatTime(t) {
+    if (!t) return '---';
+    const [hours, minutes] = t.split(':');
+    let h = parseInt(hours);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${minutes} ${ampm}`;
+}
 
 async function logout() {
     await fetch('api/auth.php?action=logout');
@@ -127,8 +207,365 @@ function toggleMobileMenu() {
 
 function openSettings() {
     toggleNavDropdown();
-    alert('Settings coming soon!');
+    document.getElementById('settingsModalOverlay').style.display = 'flex';
+    // Sync current theme buttons
+    const isDark = document.body.classList.contains('dark-mode');
+    updateThemeButtons(isDark ? 'dark' : 'light');
 }
+
+function closeSettings() {
+    document.getElementById('settingsModalOverlay').style.display = 'none';
+}
+
+function setTheme(theme) {
+    const isDark = (theme === 'dark');
+    document.body.classList.toggle('dark-mode', isDark);
+    localStorage.setItem('theme', theme);
+    updateThemeButtons(theme);
+    
+    // Inject enhanced CSS if not already there
+    if (!document.getElementById('dark-mode-style')) {
+        const style = document.createElement('style');
+        style.id = 'dark-mode-style';
+        style.innerHTML = `
+            body.dark-mode { 
+                background-color: #0f172a !important; 
+                color: #f8fafc; 
+            }
+            body.dark-mode .dashboard-container,
+            body.dark-mode .dashboard-content,
+            body.dark-mode .glass-card,
+            body.dark-mode .stat-card,
+            body.dark-mode .lab-card {
+                background: #1e293b !important;
+                border-color: #334155 !important;
+                color: #f8fafc;
+                box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4) !important;
+            }
+            body.dark-mode .navbar {
+                background: #1e293b !important;
+                border-bottom: 1px solid #334155 !important;
+            }
+            body.dark-mode .nav-link:not(.active) {
+                color: #94a3b8 !important;
+            }
+            body.dark-mode .nav-link.active {
+                color: #fbbf24 !important;
+            }
+            body.dark-mode .brand-top, 
+            body.dark-mode .brand-bottom:not(.yellow) {
+                color: #f8fafc !important;
+            }
+            body.dark-mode th {
+                background: #0f172a !important;
+                color: #f8fafc !important;
+                border-bottom: 2px solid #334155 !important;
+            }
+            /* Refined Table Backgrounds for Dark Mode */
+            body.dark-mode .teacher-manage-table td:nth-child(1),
+            body.dark-mode .teacher-manage-table td:nth-child(3),
+            body.dark-mode .teacher-manage-table td:nth-child(4),
+            body.dark-mode .teacher-manage-table td.teacher-name-cell,
+            body.dark-mode .teacher-name-cell,
+            body.dark-mode .teacher-table td.teacher-name-cell,
+            body.dark-mode .teacher-manage-table td.status-cell,
+            body.dark-mode .teacher-manage-table td.subject-cell,
+            body.dark-mode .subject-cell,
+            body.dark-mode .room-name-cell,
+            body.dark-mode #scheduleCombinedTable td:nth-child(1) { 
+                background: #1e293b !important; 
+            }
+            body.dark-mode .teacher-manage-table td:nth-child(2),
+            body.dark-mode .teacher-manage-table td:nth-child(5),
+            body.dark-mode .teacher-manage-table td:nth-child(6),
+            body.dark-mode .teacher-manage-table td.campus-cell,
+            body.dark-mode .teacher-manage-table td.section-cell,
+            body.dark-mode .section-cell,
+            body.dark-mode .teacher-table td.section-cell,
+            body.dark-mode .teacher-manage-table td.action-cell,
+            body.dark-mode .campus-cell,
+            body.dark-mode .action-cell,
+            body.dark-mode .view-btn-cell,
+            body.dark-mode #scheduleCombinedTable td:nth-child(2),
+            body.dark-mode #scheduleCombinedTable td:nth-child(3) { 
+                background: #0f172a !important; 
+            }
+            body.dark-mode .teacher-manage-table td,
+            body.dark-mode .teacher-table td,
+            body.dark-mode .teacher-table tr:nth-child(even) td {
+                color: #f1f5f9;
+                border: 1px solid #334155 !important;
+            }
+
+            /* --- VIBRANT HIGHLIGHT THINGY FOR DARK MODE --- */
+            body.dark-mode tr:hover td,
+            body.dark-mode .teacher-table tbody tr:hover td,
+            body.dark-mode .teacher-manage-table tbody tr:hover td,
+            body.dark-mode #scheduleCombinedTable tbody tr:hover td {
+                background: #fbbf24 !important;
+                color: #1e1b4b !important;
+            }
+            body.dark-mode tr:hover .subj-code,
+            body.dark-mode tr:hover .subj-name,
+            body.dark-mode tr:hover .teacher-name-cell,
+            body.dark-mode tr:hover .icon-edit-new,
+            body.dark-mode tr:hover .icon-view-new {
+                color: #1e1b4b !important;
+            }
+            /* ----------------------------------------------- */
+
+            body.dark-mode .filter-btn, 
+            body.dark-mode .filter-dropdown-navy,
+            body.dark-mode .settings-group,
+            body.dark-mode #navDropdownMenu {
+                background: #334155 !important;
+                color: #f8fafc !important;
+                border: 1px solid #475569 !important;
+            }
+            body.dark-mode .view-toggle-btn,
+            body.dark-mode .toggle-btn {
+                background: #1e293b !important;
+                color: #f8fafc !important;
+                border-color: #fbbf24 !important;
+            }
+            body.dark-mode .view-toggle-btn.active,
+            body.dark-mode .toggle-btn.active {
+                background: #fbbf24 !important;
+                color: #1e1b4b !important;
+            }
+            body.dark-mode .view-toggle-btn:not(.active),
+            body.dark-mode .toggle-btn.outline:not(.active) {
+                background: transparent !important;
+                color: #94a3b8 !important;
+            }
+            /* Target all variants of the dark navy and almost black used */
+            body.dark-mode *[style*="color: #1e1b4b"],
+            body.dark-mode *[style*="color: #111827"],
+            body.dark-mode *[style*="color: #00008B"],
+            body.dark-mode *[style*="color: #1e293b"],
+            body.dark-mode .icon-edit-new,
+            body.dark-mode .dropdown-arrow,
+            body.dark-mode #p_username,
+            body.dark-mode h1, body.dark-mode h2, body.dark-mode h3,
+            body.dark-mode .lab-card h3,
+            body.dark-mode *[style*="border-left: 4px solid #1e1b4b"] {
+                color: #fbbf24 !important;
+            }
+            /* Lighten secondary/gray text for visibility */
+            body.dark-mode *[style*="color: #64748b"],
+            body.dark-mode *[style*="color: #475569"],
+            body.dark-mode *[style*="color: #374151"],
+            body.dark-mode *[style*="color: #4b5563"],
+            body.dark-mode *[style*="color: #94a3b8"] {
+                color: #cbd5e1 !important;
+            }
+            /* Override hardcoded backgrounds in schedule cards */
+            body.dark-mode *[style*="background: #ffffff"],
+            body.dark-mode *[style*="background: #fdfdfd"],
+            body.dark-mode *[style*="background: #fcfcfc"],
+            body.dark-mode *[style*="background: #fafafa"],
+            body.dark-mode *[style*="background: #f8fafc"],
+            body.dark-mode *[style*="background: #f1f5f9"],
+            body.dark-mode *[style*="background: #e5e7eb"],
+            body.dark-mode *[style*="background: #ede9fe"],
+            body.dark-mode *[style*="background: #dbeafe"],
+            body.dark-mode *[style*="background: white"] {
+                background: #1e293b !important;
+            }
+            body.dark-mode .ongoing-highlight,
+            body.dark-mode *[style*="background: #fef9c3"],
+            body.dark-mode *[style*="background: rgba(251, 191, 36"],
+            body.dark-mode *[style*="background:rgba(251, 191, 36"] {
+                background: rgba(251, 191, 36, 0.3) !important;
+                border: 2px solid #fbbf24 !important;
+                border-left-width: 6px !important;
+                box-shadow: 0 0 15px rgba(251, 191, 36, 0.2) !important;
+            }
+            /* SVG stroke and fill overrides */
+            body.dark-mode svg[stroke*="#1e1b4b"] { stroke: #f8fafc !important; }
+            body.dark-mode svg polyline[stroke*="#1e1b4b"] { stroke: #f8fafc !important; }
+            body.dark-mode svg path[stroke*="#1e1b4b"] { stroke: #f8fafc !important; }
+            body.dark-mode svg path[fill*="#00008B"],
+            body.dark-mode svg path[fill*="#1e1b4b"],
+            body.dark-mode svg circle[fill*="#1e1b4b"] { fill: #f8fafc !important; }
+
+            /* Match hardcoded navy borders to lighter colors */
+            body.dark-mode *[style*="border-left: 3px solid #1e1b4b"],
+            body.dark-mode *[style*="border-left: 4px solid #1e1b4b"],
+            body.dark-mode *[style*="border-left-color: #1e1b4b"],
+            body.dark-mode *[style*="border-left: 4px solid var(--text-dark)"] {
+                border-left-color: #fbbf24 !important;
+            }
+            body.dark-mode *[style*="border-bottom: 2px solid #fbbf24"] {
+                border-bottom-color: #fbbf24 !important;
+            }
+            
+            body.dark-mode *[style*="border-left: 5px solid #e2e8f0"] {
+                border-left-color: #334155 !important;
+            }
+            
+            /* Preserve accent colors explicitly */
+            body.dark-mode *[style*="color: #ef4444"],
+            body.dark-mode .icon-delete-new {
+                color: #ef4444 !important;
+            }
+            body.dark-mode *[style*="color: #fbbf24"],
+            body.dark-mode .yellow {
+                color: #fbbf24 !important;
+            }
+            body.dark-mode *[style*="color: #10b981"] {
+                color: #4ade80 !important;
+            }
+            body.dark-mode .stat-number {
+                color: #fbbf24 !important;
+            }
+            body.dark-mode .stat-label {
+                color: #94a3b8 !important;
+            }
+            body.dark-mode .stat-icon {
+                background: rgba(251, 191, 36, 0.1) !important;
+            }
+            body.dark-mode #settingsModalOverlay,
+            body.dark-mode #profileModalOverlay,
+            body.dark-mode #modalOverlay,
+            body.dark-mode #roomModalOverlay,
+            body.dark-mode #subjectModalOverlay,
+            body.dark-mode #labModal {
+                background: rgba(0, 0, 0, 0.8) !important;
+            }
+            body.dark-mode input, body.dark-mode select, body.dark-mode textarea {
+                background: #1e293b !important;
+                color: #f8fafc !important;
+                border-color: #475569 !important;
+            }
+            body.dark-mode label {
+                color: #cbd5e1 !important;
+            }
+            body.dark-mode .toggle-btn.outline {
+                background: #334155 !important;
+                color: #f8fafc !important;
+                border-color: #475569 !important;
+            }
+            body.dark-mode .view-toggle-btn.active,
+            body.dark-mode .toggle-btn.active,
+            body.dark-mode .btn-primary,
+            body.dark-mode *[style*="background: #fbbf24"] {
+                color: #1e1b4b !important;
+            }
+            body.dark-mode *[style*="background: #fbbf24"] * {
+                color: #1e1b4b !important;
+            }
+            body.dark-mode .subj-code {
+                color: #fbbf24 !important;
+            }
+            body.dark-mode .subj-name {
+                color: #94a3b8;
+            }
+            body.dark-mode .teacher-name-cell,
+            body.dark-mode .room-name-cell,
+            body.dark-mode .campus-cell,
+            body.dark-mode .status-cell,
+            body.dark-mode .section-cell,
+            body.dark-mode #scheduleCombinedTable td:nth-child(1),
+            body.dark-mode #scheduleCombinedTable td:nth-child(2),
+            body.dark-mode #labModalContent td,
+            body.dark-mode #labModalContent div[style*="color: #111827"],
+            body.dark-mode #labModalContent div[style*="color: #374151"],
+            body.dark-mode #labModalContent div[style*="color: #4b5563"],
+            body.dark-mode #labModalContent div[style*="color: #6b7280"] {
+                color: #f1f5f9 !important;
+            }
+            /* Target faculty name in schedule cards (hardcoded #4f46e5) */
+            body.dark-mode *[style*="color: #4f46e5"],
+            body.dark-mode *[style*="color: #3b82f6"] {
+                color: #fbbf24 !important;
+            }
+            /* Add Room / Subject / Modal Buttons */
+            body.dark-mode .btn-primary,
+            body.dark-mode #roomModalOverlay .btn-primary,
+            body.dark-mode #subjectModalOverlay .btn-primary,
+            body.dark-mode #modalOverlay .btn-primary {
+                background: #fbbf24 !important;
+                color: #1e1b4b !important;
+            }
+            /* Full Schedule Modal Overrides */
+            body.dark-mode #labModalContent *[style*="background: #f8fafc"],
+            body.dark-mode #labModalContent *[style*="background: white"],
+            body.dark-mode #labModalContent *[style*="background: #f1f5f9"] {
+                background: #1e293b !important;
+                border-color: #334155 !important;
+            }
+            body.dark-mode #labModalContent h4 {
+                color: #fbbf24 !important;
+                border-bottom-color: #fbbf24 !important;
+            }
+            /* Ensure the room name in the list is visible */
+            body.dark-mode #labModalContent div[style*="color: #6b7280"] {
+                color: #cbd5e1 !important;
+            }
+            body.dark-mode #labModalContent div[style*="background: #f8fafc"] {
+                background: #0f172a !important;
+                border: 1px solid #1e293b !important;
+            }
+            /* Faculty Full Schedule View Overrides */
+            body.dark-mode #labModalContent div[style*="background: white"] {
+                background: #1e293b !important;
+                border-color: #334155 !important;
+            }
+            body.dark-mode #labModalContent div[style*="background: #f9fafb"] {
+                background: #0f172a !important;
+                border-bottom: 2px solid #fbbf24 !important;
+            }
+            body.dark-mode #labModalContent div[style*="border-bottom: 1px solid #f3f4f6"] {
+                border-bottom-color: #334155 !important;
+            }
+            body.dark-mode #labModalContent h2[style*="color: #1e1b4b"] {
+                color: #f8fafc !important;
+            }
+            body.dark-mode #labModalContent h3[style*="color: #111827"] {
+                color: #fbbf24 !important;
+            }
+            /* Row text visibility */
+            body.dark-mode #labModalContent div[style*="color: #111827"],
+            body.dark-mode #labModalContent div[style*="color: #374151"],
+            body.dark-mode #labModalContent div[style*="color: #4b5563"] {
+                color: #f1f5f9 !important;
+            }
+            body.dark-mode #labModalContent div[style*="color: #6b7280"] {
+                color: #cbd5e1 !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+function updateThemeButtons(theme) {
+    const lightBtn = document.getElementById('lightThemeBtn');
+    const darkBtn = document.getElementById('darkThemeBtn');
+    if (!lightBtn || !darkBtn) return;
+
+    if (theme === 'light') {
+        lightBtn.style.borderColor = '#fbbf24';
+        lightBtn.style.background = '#fffbeb';
+        darkBtn.style.borderColor = '#e2e8f0';
+        darkBtn.style.background = 'white';
+        // Reset colors
+        lightBtn.querySelector('span').style.color = '#1e1b4b';
+        darkBtn.querySelector('span').style.color = '#64748b';
+    } else {
+        darkBtn.style.borderColor = '#fbbf24';
+        darkBtn.style.background = '#1e293b'; 
+        darkBtn.querySelector('span').style.color = '#fbbf24';
+        lightBtn.style.borderColor = '#334155';
+        lightBtn.style.background = '#1e293b';
+        lightBtn.querySelector('span').style.color = '#64748b';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+});
 
 // Close dropdown when clicking outside
 document.addEventListener('click', function (e) {
@@ -280,20 +717,24 @@ function openModal(section, options = {}) {
             `;
         }
     } else if (section === 'subjects') {
-        fields.innerHTML = `
-            <div class="form-group">
-                <label>Subject Code</label>
-                <input type="text" id="m_code" placeholder="e.g. IT-101" required>
-            </div>
-            <div class="form-group">
-                <label>Subject Name</label>
-                <input type="text" id="m_name" placeholder="e.g. Programming 1" required>
-            </div>
-            <div class="form-group">
-                <label>Units</label>
-                <input type="number" id="m_units" value="3" required>
-            </div>
-        `;
+    } else if (section === 'subjects') {
+        fields.innerHTML = '<div style="text-align: center; padding: 1rem;">Loading curriculum data...</div>';
+        fetch('api/curricula.php').then(r => r.json()).then(curricula => {
+            fields.innerHTML = `
+                <div class="form-group">
+                    <label>Subject Code</label>
+                    <input type="text" id="m_code" value="${options.code || ''}" placeholder="e.g. IT-101" required>
+                </div>
+                <div class="form-group">
+                    <label>Subject Name</label>
+                    <input type="text" id="m_name" value="${options.name || ''}" placeholder="e.g. Programming 1" required>
+                </div>
+                <div class="form-group">
+                    <label>Units</label>
+                    <input type="number" id="m_units" value="${options.units || 3}" required>
+                </div>
+            `;
+        });
     } else if (section === 'rooms') {
         fields.innerHTML = `
             <div class="form-group">
@@ -323,8 +764,8 @@ function openModal(section, options = {}) {
 
             // Sort: COMLAB/COMPLAB 1-7 first, then other rooms alphabetically
             rooms.sort((a, b) => {
-                const aName = a.name.toUpperCase();
-                const bName = b.name.toUpperCase();
+                const aName = (a.name || '').toUpperCase();
+                const bName = (b.name || '').toUpperCase();
                 const aIsLab = aName.startsWith('COMLAB') || aName.startsWith('COMPLAB');
                 const bIsLab = bName.startsWith('COMLAB') || bName.startsWith('COMPLAB');
                 if (aIsLab && !bIsLab) return -1;
@@ -332,16 +773,16 @@ function openModal(section, options = {}) {
                 return aName.localeCompare(bName, undefined, { numeric: true, sensitivity: 'base' });
             });
 
+            title.innerHTML = options.id ? 'Edit Room Schedule' : 'Schedule Management';
             fields.innerHTML = `
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                     <div class="form-group" id="roomGroup">
                         <label>Name Room</label>
                         <select id="m_room_id" onchange="toggleTypedInput('room'); updateCampusWarning();" required>
                             <option value="">Select Room</option>
-                            ${rooms.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
+                            ${rooms.map(r => `<option value="${r.id}" ${options.room_id == r.id ? 'selected' : ''}>${r.name.replace(/COMPLAB/g, 'COMLAB')}</option>`).join('')}
                             <option value="other" style="color: #4f46e5; font-weight: 800;">+ Add Room</option>
                         </select>
-
                         <div id="roomTypedInputs" style="display: none; margin-top: 6px; border: 2px dashed #fbbf24; padding: 8px; border-radius: 10px; background: rgba(30, 27, 75, 0.05);">
                             <input type="text" id="m_room_name" placeholder="e.g. COMLAB 10" style="font-size: 0.85rem;">
                         </div>
@@ -349,13 +790,7 @@ function openModal(section, options = {}) {
                     <div class="form-group">
                         <label>Day</label>
                         <select id="m_day" required>
-                            <option value="Monday">Monday</option>
-                            <option value="Tuesday">Tuesday</option>
-                            <option value="Wednesday">Wednesday</option>
-                            <option value="Thursday">Thursday</option>
-                            <option value="Friday">Friday</option>
-                            <option value="Saturday">Saturday</option>
-                            <option value="Sunday">Sunday</option>
+                            ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => `<option value="${d}" ${options.day === d ? 'selected' : ''}>${d}</option>`).join('')}
                         </select>
                     </div>
                 </div>
@@ -364,7 +799,7 @@ function openModal(section, options = {}) {
                     <label>Subject</label>
                     <select id="m_subject_id" onchange="toggleTypedInput('subject')" required>
                         <option value="">Select Subject</option>
-                        ${subjects.map(s => `<option value="${s.id}">${s.code} - ${s.name}</option>`).join('')}
+                        ${subjects.map(s => `<option value="${s.id}" ${options.subject_id == s.id ? 'selected' : ''}>${s.code} - ${s.name}</option>`).join('')}
                         <option value="other" style="color: #4f46e5; font-weight: 800;">+ Add New Subject</option>
                     </select>
                     <div id="subjectTypedInputs" style="display: none; margin-top: 6px; border: 2px dashed #fbbf24; padding: 8px; border-radius: 10px; background: rgba(30, 27, 75, 0.05);">
@@ -377,7 +812,7 @@ function openModal(section, options = {}) {
                     <label>Teacher</label>
                     <select id="m_faculty_id" onchange="toggleTypedInput('faculty'); updateCampusWarning();" required>
                         <option value="">Select Teacher</option>
-                        ${faculty.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
+                        ${faculty.map(f => `<option value="${f.id}" ${options.faculty_id == f.id ? 'selected' : ''}>${f.name}</option>`).join('')}
                         <option value="other" style="color: #4f46e5; font-weight: 800;">+ Type New Teacher</option>
                     </select>
                     <div id="facultyTypedInputs" style="display: none; margin-top: 6px; border: 2px dashed #fbbf24; padding: 8px; border-radius: 10px; background: rgba(30, 27, 75, 0.05);">
@@ -385,19 +820,17 @@ function openModal(section, options = {}) {
                     </div>
                 </div>
 
-                <!-- Campus Warning Message -->
                 <div id="campusWarning" style="display: none; padding: 10px; margin-top: 5px; border-radius: 8px; background-color: #fff7ed; border: 1px solid #fdba74; color: #9a3412; font-size: 0.8rem; font-weight: 600; align-items: flex-start; gap: 8px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                     <span id="campusWarningText"></span>
                 </div>
 
                 <div style="margin-top: 10px;">
-
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 0.5rem;">
                         <div class="form-group">
                             <label>Start Time</label>
-                            <input type="hidden" id="m_start">
-                            <div id="startTimePicker" style="display: flex; align-items: center; gap: 5px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px;">
+                            <input type="hidden" id="m_start" value="${options.start_time || ''}">
+                            <div id="startTimePicker" style="display: ${options.start_time ? 'none' : 'flex'}; align-items: center; gap: 5px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px;">
                                 <select id="m_start_hr" style="background: transparent; border: none; padding: 2px; font-size: 0.95rem; font-weight: 600; color: #1e1b4b; cursor: pointer; width: 40px; text-align: center; appearance: none;">
                                     ${[...Array(12)].map((_, i) => `<option value="${i + 1}">${String(i + 1).padStart(2, '0')}</option>`).join('')}
                                 </select>
@@ -411,12 +844,12 @@ function openModal(section, options = {}) {
                                 </select>
                                 <button type="button" onclick="confirmTime('start')" style="margin-left: auto; padding: 4px 12px; background: #fbbf24; color: #000; border: none; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">OK</button>
                             </div>
-                            <div id="startTimeDisplay" style="display: none; margin-top: 4px; font-size: 0.9rem; font-weight: 600; color: #1e1b4b; padding: 8px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; text-align: center; cursor: pointer;" onclick="document.getElementById('startTimePicker').style.display='flex'; this.style.display='none';"></div>
+                            <div id="startTimeDisplay" style="display: ${options.start_time ? 'block' : 'none'}; margin-top: 4px; font-size: 0.9rem; font-weight: 600; color: #1e1b4b; padding: 8px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; text-align: center; cursor: pointer;" onclick="document.getElementById('startTimePicker').style.display='flex'; this.style.display='none';">${options.start_time ? '✓ ' + options.start_time : ''}</div>
                         </div>
                         <div class="form-group">
                             <label>End Time</label>
-                            <input type="hidden" id="m_end">
-                            <div id="endTimePicker" style="display: flex; align-items: center; gap: 5px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px;">
+                            <input type="hidden" id="m_end" value="${options.end_time || ''}">
+                            <div id="endTimePicker" style="display: ${options.end_time ? 'none' : 'flex'}; align-items: center; gap: 5px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px;">
                                 <select id="m_end_hr" style="background: transparent; border: none; padding: 2px; font-size: 0.95rem; font-weight: 600; color: #1e1b4b; cursor: pointer; width: 40px; text-align: center; appearance: none;">
                                     ${[...Array(12)].map((_, i) => `<option value="${i + 1}">${String(i + 1).padStart(2, '0')}</option>`).join('')}
                                 </select>
@@ -430,16 +863,17 @@ function openModal(section, options = {}) {
                                 </select>
                                 <button type="button" onclick="confirmTime('end')" style="margin-left: auto; padding: 4px 12px; background: #fbbf24; color: #000; border: none; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">OK</button>
                             </div>
-                            <div id="endTimeDisplay" style="display: none; margin-top: 4px; font-size: 0.9rem; font-weight: 600; color: #1e1b4b; padding: 8px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; text-align: center; cursor: pointer;" onclick="document.getElementById('endTimePicker').style.display='flex'; this.style.display='none';"></div>
+                            <div id="endTimeDisplay" style="display: ${options.end_time ? 'block' : 'none'}; margin-top: 4px; font-size: 0.9rem; font-weight: 600; color: #1e1b4b; padding: 8px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; text-align: center; cursor: pointer;" onclick="document.getElementById('endTimePicker').style.display='flex'; this.style.display='none';">${options.end_time ? '✓ ' + options.end_time : ''}</div>
                         </div>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Section</label>
-                    <input type="text" id="m_section" placeholder="e.g. AI32">
+                    <input type="text" id="m_section" placeholder="e.g. AI32" value="${options.section || ''}">
                 </div>
             `;
+            if (options.room_id) updateCampusWarning();
         });
     }
 }
@@ -584,7 +1018,7 @@ document.getElementById('modalForm')?.addEventListener('submit', async (e) => {
                 const subjCodeVal = document.getElementById('m_subject_code')?.value || '';
                 const subjNameVal = document.getElementById('m_subject_name')?.value || '';
 
-                const schedRes = await fetch(`api/schedules.php?id=${editingScheduleId}`, {
+                const schedRes = await fetch(`api/schedules.php?id=${editingScheduleId}&term_id=${window.activeTermId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -659,7 +1093,8 @@ document.getElementById('modalForm')?.addEventListener('submit', async (e) => {
                             room_name: 'TBA',
                             day: 'Monday',
                             start_time: '08:00',
-                            end_time: '09:00'
+                            end_time: '09:00',
+                            term_id: window.activeTermId
                         })
                     });
                 }
@@ -701,7 +1136,8 @@ document.getElementById('modalForm')?.addEventListener('submit', async (e) => {
                         room_name: 'TBA',
                         day: 'Monday',
                         start_time: '08:00',
-                        end_time: '09:00'
+                        end_time: '09:00',
+                        term_id: window.activeTermId
                     })
                 });
             }
@@ -719,6 +1155,14 @@ document.getElementById('modalForm')?.addEventListener('submit', async (e) => {
             }
         }
     }
+    
+    if (currentSection === 'subjects') {
+        data.code = document.getElementById('m_code').value;
+        data.name = document.getElementById('m_name').value;
+        data.units = document.getElementById('m_units').value;
+        data.curriculum_id = document.getElementById('m_curriculum_id').value;
+        data.term_id = window.activeTermId;
+    }
 
     if (currentSection === 'schedules') {
         data.room_id = document.getElementById('m_room_id').value;
@@ -730,6 +1174,7 @@ document.getElementById('modalForm')?.addEventListener('submit', async (e) => {
         data.faculty_id = document.getElementById('m_faculty_id').value;
         data.faculty_name = document.getElementById('m_faculty_name')?.value || '';
         data.section = document.getElementById('m_section').value;
+        data.term_id = window.activeTermId;
 
         // Read time pickers directly if the user hasn't clicked OK
         ['start', 'end'].forEach(type => {
@@ -747,8 +1192,13 @@ document.getElementById('modalForm')?.addEventListener('submit', async (e) => {
     }
 
     try {
-        const res = await fetch(`api/${currentSection}.php`, {
-            method: 'POST',
+        const method = (currentSection === 'schedules' && editingScheduleId) ? 'PUT' : 'POST';
+        const url = (currentSection === 'schedules' && editingScheduleId) 
+                    ? `api/schedules.php?id=${editingScheduleId}&term_id=${window.activeTermId}` 
+                    : `api/${currentSection}.php`;
+
+        const res = await fetch(url, {
+            method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
@@ -830,8 +1280,8 @@ async function loadTeacherManagementTable() {
 
     try {
         const [facultyRes, scheduleRes] = await Promise.all([
-            fetch('api/faculty.php', { cache: 'no-store' }),
-            fetch('api/teacher_schedule.php', { cache: 'no-store' })
+            fetch(`api/faculty.php`, { cache: 'no-store' }),
+            fetch(`api/teacher_schedule.php?term_id=${window.activeTermId}`, { cache: 'no-store' })
         ]);
 
         const facultyData = await facultyRes.json();
@@ -1008,7 +1458,8 @@ function editFaculty(el) {
 }
 
 async function loadSectionData(section) {
-    const res = await fetch(`api/${section}.php`, { cache: 'no-store' });
+    const url = (section === 'subjects' || section === 'schedules') ? `api/${section}.php?term_id=${window.activeTermId}` : `api/${section}.php`;
+    const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json();
     const tbody = document.querySelector(`#${section}Table tbody`);
     if (!tbody) return;
@@ -1041,7 +1492,7 @@ async function loadSectionData(section) {
         } else if (section === 'schedules') {
             tr.innerHTML = `
                 <td>${item.day}</td>
-                <td>${item.start_time} - ${item.end_time}</td>
+                <td>${formatTime(item.start_time)} - ${formatTime(item.end_time)}</td>
                 <td>${item.faculty_name}</td>
                 <td>${item.subject_name}</td>
                 <td>${item.room_name}</td>
@@ -1062,7 +1513,8 @@ async function loadCounts() {
     const sections = ['faculty', 'rooms', 'schedules'];
     for (const section of sections) {
         try {
-            const res = await fetch(`api/${section}.php`, { cache: 'no-store' });
+            const url = section === 'schedules' ? `api/${section}.php?term_id=${window.activeTermId}` : `api/${section}.php`;
+            const res = await fetch(url, { cache: 'no-store' });
             const data = await res.json();
             const countId = section === 'faculty' ? 'facultyCount' : (section === 'rooms' ? 'roomCount' : 'scheduleCount');
             const el = document.getElementById(countId);
@@ -1100,7 +1552,7 @@ function startClock() {
 
     setInterval(() => {
         const now = new Date();
-        clock.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        clock.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
     }, 1000);
 }
 
@@ -1161,7 +1613,7 @@ async function renderSchedulesVisualGrid() {
 
     const [roomsRes, schedulesRes] = await Promise.all([
             fetch('api/rooms.php', { cache: 'no-store' }),
-            fetch('api/lab_schedule.php', { cache: 'no-store' })
+            fetch(`api/lab_schedule.php?term_id=${window.activeTermId}`, { cache: 'no-store' })
         ]);
 
     const roomsData = await roomsRes.json();
@@ -1201,7 +1653,7 @@ async function renderSchedulesVisualGrid() {
     sortedRoomNames.forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
-        opt.textContent = name.toUpperCase().replace('COMPLAB', 'COMLAB').replace('COMLAB ', 'COMLAB').replace('COMLAB', 'COMLAB ');
+        opt.textContent = name.toUpperCase().replace(/COMPLAB/g, 'COMLAB').replace('COMLAB ', 'COMLAB').replace('COMLAB', 'COMLAB ');
         filter.appendChild(opt);
     });
     // Restore previous selection if it still exists
@@ -1209,37 +1661,60 @@ async function renderSchedulesVisualGrid() {
         filter.value = previousValue;
     }
 
-    const selectedFilter = filter.value;
+    const selectedRoomFilter = document.getElementById('roomFilter')?.value || 'all';
+    const selectedTeacherFilter = document.getElementById('homeTeacherFilter')?.value || 'all';
+
     grid.innerHTML = '';
 
-    const roomsToShow = selectedFilter === 'all' ? sortedRoomNames : [selectedFilter];
+    const roomsToShow = selectedRoomFilter === 'all' ? sortedRoomNames : [selectedRoomFilter];
 
     const now = new Date();
     const todayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()];
 
     roomsToShow.forEach(labName => {
-        const roomSchedules = allSchedules.filter(s => s.room_name === labName);
+        let roomSchedules = allSchedules.filter(s => s.room_name === labName);
+
+        // Filter by teacher if selected
+        if (selectedTeacherFilter !== 'all') {
+            roomSchedules = roomSchedules.filter(s => s.faculty_name === selectedTeacherFilter);
+            if (roomSchedules.length === 0 && selectedRoomFilter !== 'all') {
+                // If specific room selected but teacher not there, show nothing
+                return;
+            } else if (roomSchedules.length === 0) {
+                // If "all labs" but teacher not in this specific lab, skip this card
+                return;
+            }
+        }
 
         const card = document.createElement('div');
         card.className = 'lab-card';
-        card.style.border = '2px solid #fbbf24';
-        card.style.borderRadius = '16px';
-        card.style.padding = '1.25rem';
-        card.style.background = 'white';
-        card.style.display = 'flex';
-        card.style.flexDirection = 'column';
-        card.style.height = '540px';
-        card.style.maxHeight = '540px';
-        card.style.boxShadow = '0 10px 25px -5px rgba(0, 0, 0, 0.05)';
-
-        const formatSimpleTime = (t) => {
-            if (!t) return '---';
-            const [hours, minutes] = t.split(':');
-            const h = parseInt(hours);
-            const ampm = h >= 12 ? 'PM' : 'AM';
-            const h12 = h % 12 || 12;
-            return `${h12}:${minutes} ${ampm}`;
+        card.onclick = () => viewLabSchedule(labName, roomSchedules, true);
+        
+        // Match home page styling exactly
+        card.style.cssText = `
+            cursor: pointer;
+            height: 480px;
+            max-height: 480px;
+            background: white;
+            border: 1.5px solid #fbbf24;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.2s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.02);
+            position: relative;
+            margin: 0.5rem;
+        `;
+        card.onmouseover = () => { 
+            card.style.boxShadow = '0 10px 25px rgba(0,0,0,0.08)'; 
+            card.style.transform = 'translateY(-4px)'; 
         };
+        card.onmouseout  = () => { 
+            card.style.boxShadow = '0 5px 15px rgba(0,0,0,0.02)'; 
+            card.style.transform = 'none'; 
+        };
+        
 
         const getSecs = (timeStr) => {
             if (!timeStr) return 0;
@@ -1260,35 +1735,32 @@ async function renderSchedulesVisualGrid() {
             const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             dayOrder.forEach(day => {
                 if (groupedByDay[day]) {
-                    slotsHtml += `<div style="margin-top: 0.8rem; margin-bottom: 0.6rem; padding-left: 6px; border-left: 3px solid #1e1b4b; font-weight: 900; color: #1e1b4b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">${day}</div>`;
+                    slotsHtml += `<div style="margin-top: 1rem; margin-bottom: 0.6rem; padding-left: 8px; border-left: 4px solid #1e1b4b; font-weight: 500; color: #1e1b4b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center;">${day}</div>`;
 
                     groupedByDay[day].forEach(s => {
-                        const timeRange = `${formatSimpleTime(s.start_time)} - ${formatSimpleTime(s.end_time)}`;
+                        const timeRange = `${formatTime(s.start_time)} - ${formatTime(s.end_time)}`;
                         const startSecs = getSecs(s.start_time);
                         const endSecs = getSecs(s.end_time);
 
-                        let isOngoing = (day === todayName) && (currentSecs >= startSecs && currentSecs <= endSecs);
-                        let status = isOngoing ? "ONGOING" : "SCHEDULED";
-                        // Match navy + yellow system palette
-                        let bgColor = isOngoing ? "#fef9c3" : "#f8fafc"; // soft yellow for ongoing, light slate for scheduled
-                        let statusColor = isOngoing ? "#92400e" : "#64748b";
-                        let textWeight = isOngoing ? "900" : "400";
-                        let subWeight = isOngoing ? "900" : "500";
+                        const isOngoing = (day === todayName) && (currentSecs >= startSecs && currentSecs <= endSecs);
+                        const status = isOngoing ? "ONGOING" : "SCHEDULED";
+                        const highlightStyle = isOngoing ? 'background: rgba(251, 191, 36, 0.15); border: 2px solid #fbbf24; border-left: 6px solid #fbbf24;' : 'background: white; border: 1px solid #e2e8f0;';
+                        const lastName = (s.faculty_name || '').split(' ').filter(Boolean).slice(-1)[0]?.toUpperCase() || '---';
 
                         slotsHtml += `
-                            <div style="background: ${bgColor}; padding: 0.8rem 1rem; border-radius: 10px; margin-bottom: 0.6rem; flex-shrink: 0; box-shadow: 0 4px 10px rgba(15,23,42,0.06); border-left: 5px solid ${isOngoing ? '#fbbf24' : '#e2e8f0'}; position: relative;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                    <span style="font-size: 0.65rem; font-weight: ${textWeight}; color: ${statusColor}; text-transform: uppercase;">${status}</span>
-                                    <span style="font-size: 0.8rem; font-weight: ${textWeight}; color: #1e1b4b;">${timeRange}</span>
+                            <div class="${isOngoing ? 'ongoing-highlight' : ''}" style="${highlightStyle} padding: 0.8rem; border-radius: 8px; margin-bottom: 0.6rem; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-size: 0.65rem; font-weight: 500; background: ${isOngoing ? '#fbbf24' : '#f1f5f9'}; color: ${isOngoing ? '#1e1b4b' : '#64748b'}; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">${status}</span>
+                                    <span style="font-size: 0.72rem; font-weight: 400; color: ${isOngoing ? '#1e1b4b' : '#64748b'}; background: ${isOngoing ? 'rgba(30, 27, 75, 0.1)' : 'transparent'}; padding: ${isOngoing ? '2px 6px' : '0'}; border-radius: 4px;">${timeRange}</span>
                                 </div>
                                 <div style="margin-bottom: 4px;">
-                                    <h4 style="font-size: 1rem; font-weight: ${subWeight}; color: #1e1b4b; line-height: 1.2; margin: 0;">${s.subject_code} ${s.subject_name}</h4>
+                                    <h4 style="font-size: 0.95rem; font-weight: 500; color: ${isOngoing ? '#fbbf24' : '#1e1b4b'}; line-height: 1.3; margin: 0; font-family: 'Inter', sans-serif;">${s.subject_code || ''} ${s.subject_name || ''}</h4>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-                                    <div style="display: flex; align-items: center; gap: 5px; color: #4338ca; font-weight: ${textWeight}; font-size: 0.85rem;">
-                                        👤 ${s.faculty_name.split(' ')[0]}
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 5px; color: ${isOngoing ? '#fbbf24' : '#3b82f6'}; font-weight: 500; font-size: 0.8rem;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="opacity: 0.7;"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg> ${lastName}
                                     </div>
-                                    <div style="font-size: 0.8rem; color: #1e1b4b; font-weight: ${textWeight};">
+                                    <div style="font-size: 0.72rem; color: ${isOngoing ? '#fbbf24' : '#64748b'}; font-weight: 400;">
                                         Sec: ${s.section || '---'}
                                     </div>
                                 </div>
@@ -1300,27 +1772,30 @@ async function renderSchedulesVisualGrid() {
         } else {
             slotsHtml = `
                 <div style="background: white; padding: 3rem 1.5rem; border-radius: 12px; text-align: center; color: #94a3b8; border: 2px dashed #f1f5f9; flex-grow: 1; display: flex; align-items: center; justify-content: center;">
-                    <p style="margin: 0; font-weight: 700; opacity: 0.6;">No Scheduled Classes</p>
+                    <p style="margin: 0; font-weight: 500; opacity: 0.6;">Rest Day</p>
                 </div>
             `;
         }
 
-        const displayTitle = labName.toUpperCase().replace('COMPLAB', 'COMLAB').replace('COMLAB ', 'COMLAB');
+        const displayTitle = labName.toUpperCase().replace(/\s+/g, '').replace(/COMP?LAB/g, 'COMLAB').replace(/COMLAB/g, 'COMLAB ');
 
         card.innerHTML = `
-            <h3 style="font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 1rem; color: #1e1b4b; font-weight: 900; letter-spacing: -0.5px;">${displayTitle}</h3>
-            <div style="display: inline-block; margin-bottom: 1rem;">
-                <div style="display: flex; align-items: center; gap: 0.6rem; color: #1e1b4b; border-bottom: 3px solid #fbbf24; padding-bottom: 6px;">
-                    <div style="background: #fbbf24; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1rem; box-shadow: 0 4px 8px rgba(251, 191, 36, 0.2);">
+            <h3 style="font-family: 'Playfair Display', serif; font-size: 1.5rem; padding: 1.2rem 1rem 0.6rem; margin: 0; color: #1e1b4b; height: auto; overflow: visible; display: block; font-weight: 600; letter-spacing: -0.3px; line-height: 1.2;">${displayTitle}</h3>
+            <div class="schedule-label" style="display: inline-block; margin-bottom: 0.8rem; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 0.6rem; color: #1e1b4b; border-bottom: 2px solid #fbbf24; padding-bottom: 6px; margin: 0 0.5rem;">
+                    <div class="icon" style="background: #fbbf24; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1rem; box-shadow: 0 4px 8px rgba(251, 191, 36, 0.1);">
                         📅
                     </div>
-                    <strong style="font-size: 1rem; font-family: 'Inter', sans-serif; font-weight: 800; letter-spacing: -0.3px;">Schedules:</strong>
+                    <strong style="font-size: 0.95rem; font-family: 'Inter', sans-serif; font-weight: 500; letter-spacing: -0.2px;">Schedules:</strong>
                 </div>
             </div>
-            <div class="custom-scrollbar" style="display: flex; flex-direction: column; flex-grow: 1; overflow-y: auto; padding: 1.2rem; background: #f8fafc; border-radius: 12px;">
-                ${slotsHtml}
+            <div class="custom-scrollbar" style="display: flex; flex-direction: column; flex-grow: 1; overflow-y: auto; padding: 1rem; background: #fdfdfd; border-radius: 12px; margin: 0 0.5rem 0.5rem; border: 1px solid #f1f5f9; direction: rtl;">
+                <div style="direction: ltr;">
+                    ${slotsHtml}
+                </div>
             </div>
         `;
+
         grid.appendChild(card);
     });
 }
@@ -1365,7 +1840,8 @@ async function populateCombinedFilter() {
             const res = await fetch('api/rooms.php');
             const rooms = await res.json();
             rooms.forEach(room => {
-                filter.innerHTML += `<option value="${room.name}">${room.name}</option>`;
+                const displayName = room.name.replace(/COMPLAB/g, 'COMLAB');
+                filter.innerHTML += `<option value="${room.name}">${displayName}</option>`;
             });
         } catch (e) {
             console.error(e);
@@ -1437,7 +1913,7 @@ async function loadScheduleCombinedData() {
         `;
 
         try {
-            const res = await fetch('api/subjects.php', { cache: 'no-store' });
+            const res = await fetch(`api/subjects.php?term_id=${window.activeTermId}`, { cache: 'no-store' });
             const subjects = await res.json();
 
             tbody.innerHTML = '';
@@ -1484,7 +1960,8 @@ async function openSubjectModal(id = null, code = '', name = '', units = 3) {
         const res = await fetch('api/rooms.php', { cache: 'no-store' });
         const rooms = await res.json();
         rooms.forEach(room => {
-            roomSelect.innerHTML += `<option value="${room.id}">${room.name}</option>`;
+            const displayName = room.name.replace(/COMPLAB/g, 'COMLAB');
+            roomSelect.innerHTML += `<option value="${room.id}">${displayName}</option>`;
         });
     } catch (e) {
         console.error('Failed to load rooms for modal', e);
@@ -1591,7 +2068,7 @@ async function loadLabGrid() {
 
     try {
         const [schedRes, roomsRes] = await Promise.all([
-            fetch('api/lab_schedule.php', { cache: 'no-store' }),
+            fetch(`api/lab_schedule.php?term_id=${window.activeTermId}`, { cache: 'no-store' }),
             fetch('api/rooms.php', { cache: 'no-store' })
         ]);
         const groupedSchedules = await schedRes.json();
@@ -1627,7 +2104,6 @@ async function loadLabGrid() {
         });
 
         allRooms.forEach(labName => {
-            // Filter by dropdown: "all" = all boxes; "OTHER ROOMS" = only boxes not in roomOrder; else = that one room's box
             if (selectedRoom !== 'all') {
                 if (selectedRoom === 'OTHER ROOMS') {
                     if (roomOrder.includes(labName)) return;
@@ -1637,140 +2113,120 @@ async function loadLabGrid() {
             }
 
             const legacyName = labName.replace(/COMLAB/g, 'COMPLAB');
-            const schedules = groupedSchedules[labName] || groupedSchedules[legacyName] || [];
+            const roomSchedules = groupedSchedules[labName] || groupedSchedules[legacyName] || [];
 
             const now = new Date();
-            const filterDay = selectedDay === 'all' ? now.toLocaleDateString('en-US', { weekday: 'long' }) : selectedDay;
-            const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
+            const todayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()];
+            const currentSecs = now.getHours() * 3600 + now.getMinutes() * 60;
 
-            schedules.sort((a, b) => a.start_time.localeCompare(b.start_time));
-
-            let displayClasses = [];
-            if (selectedTime !== 'all') {
-                displayClasses = schedules.filter(s => {
-                    if (s.day !== filterDay) return false;
-                    const h = parseInt(s.start_time.split(':')[0]);
-                    return selectedTime === 'AM' ? h < 12 : h >= 12;
-                });
-            } else {
-                // Find ongoing class
-                const currentClass = schedules.find(s =>
-                    s.day === filterDay &&
-                    currentTime >= s.start_time &&
-                    currentTime < s.end_time
-                );
-
-                if (currentClass) {
-                    displayClasses.push(currentClass);
-                }
-
-                // Find next upcoming class
-                const nextClass = schedules.find(s =>
-                    s.day === filterDay &&
-                    s.start_time > currentTime &&
-                    (!currentClass || s !== currentClass)
-                );
-
-                if (nextClass) {
-                    displayClasses.push(nextClass);
-                }
-            }
+            const fmtT = t => {
+                if (!t) return '---';
+                const [h, m] = t.split(':');
+                let hr = parseInt(h);
+                const ampm = hr >= 12 ? 'PM' : 'AM';
+                hr = hr % 12 || 12;
+                return `${hr}:${m} ${ampm}`;
+            };
 
             const card = document.createElement('div');
-            card.className = 'lab-card';
-            card.onclick = () => viewLabSchedule(labName, schedules);
+            card.onclick = () => viewLabSchedule(labName, roomSchedules, false);
+            card.style.cssText = `
+                cursor: pointer;
+                height: 480px;
+                max-height: 480px;
+                background: white;
+                border: 1.5px solid #fbbf24;
+                border-radius: 12px;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                transition: all 0.2s ease;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.02);
+                position: relative;
+                margin: 0.5rem;
+            `;
+            card.onmouseover = () => { card.style.boxShadow = '0 10px 25px rgba(0,0,0,0.08)'; card.style.transform = 'translateY(-4px)'; };
+            card.onmouseout  = () => { card.style.boxShadow = '0 5px 15px rgba(0,0,0,0.02)'; card.style.transform = 'none'; };
 
-            let slotHtml = '';
+            // Build schedule HTML
+            let slotsHtml = '';
+            const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-            if (displayClasses.length > 0) {
-                // Sort again just in case
-                displayClasses.sort((a, b) => a.start_time.localeCompare(b.start_time));
+            if (roomSchedules.length > 0) {
+                const groupedByDay = {};
+                roomSchedules.forEach(s => {
+                    const d = s.day || s.day_name;
+                    if (!groupedByDay[d]) groupedByDay[d] = [];
+                    groupedByDay[d].push(s);
+                });
 
-                // Check if first class is UPCOMING (meaning gap now)
-                const firstIsUpcoming = displayClasses[0].start_time > currentTime;
+                dayOrder.forEach(day => {
+                    if (!groupedByDay[day]) return;
+                    const daySched = groupedByDay[day].sort((a, b) => a.start_time.localeCompare(b.start_time));
+                    const isToday = day === todayName;
 
-                if (firstIsUpcoming && selectedDay === 'all' && selectedTime === 'all') {
-                    let vacantStart = "07:30";
-                    const previousClasses = schedules.filter(s => s.day === filterDay && s.end_time <= currentTime);
-                    if (previousClasses.length > 0) {
-                        previousClasses.sort((a, b) => b.end_time.localeCompare(a.end_time));
-                        vacantStart = previousClasses[0].end_time.substring(0, 5);
-                    }
+                    slotsHtml += `<div style="margin-top: 1rem; margin-bottom: 0.6rem; padding-left: 8px; border-left: 4px solid #1e1b4b; font-weight: 500; color: #1e1b4b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center;">${day}</div>`;
 
-                    let vacantEnd = displayClasses[0].start_time.substring(0, 5);
+                    daySched.forEach((s) => {
+                        const getSecs = t => { const [h, m] = t.split(':'); return parseInt(h) * 3600 + parseInt(m) * 60; };
+                        const isOngoing = isToday && currentSecs >= getSecs(s.start_time) && currentSecs <= getSecs(s.end_time);
+                        const lastName = (s.faculty_name || '').split(' ').filter(Boolean).slice(-1)[0]?.toUpperCase() || '---';
 
-                    if (vacantStart !== vacantEnd) {
-                        slotHtml += `
-                            <div style="background: white; padding: 0.8rem; border-radius: 6px; text-align: center; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; justify-content: center; height: auto; min-height: 80px; position: relative;">
-                                <span style="position: absolute; top: 0.3rem; right: 0.3rem; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; color: #64748b; font-weight: 700;">
-                                    ${vacantStart} - ${vacantEnd}
-                                </span>
-                                <h2 style="font-size: 1.8rem; font-weight: 900; color: #1e1b4b; margin: 0; letter-spacing: 0.05em; text-transform: uppercase;">VACANT</h2>
-                            </div>
-                         `;
-                    }
-                }
+                        const status = isOngoing ? "ONGOING" : "SCHEDULED";
+                        const highlightStyle = isOngoing ? 'background: rgba(251, 191, 36, 0.15); border: 2px solid #fbbf24; border-left: 6px solid #fbbf24;' : 'background: white; border: 1px solid #e2e8f0;';
 
-                displayClasses.forEach(cls => {
-                    let isUpcoming = cls.start_time > currentTime;
-                    let statusLabel = isUpcoming ? "UPCOMING" : "ONGOING";
-                    let bg = isUpcoming ? "#f1f5f9" : "#dbeafe";
-                    let border = isUpcoming ? "1px solid #e2e8f0" : "1px solid #bfdbfe";
-                    let titleColor = isUpcoming ? "#64748b" : "#1e40af";
-                    let flexData = isUpcoming ? "margin-top: auto;" : "flex-grow: 1;";
-
-                    slotHtml += `
-                        <div style="background: ${bg}; border: ${border}; padding: ${isUpcoming ? '0.4rem 0.6rem' : '0.6rem 0.8rem'}; border-radius: 6px; ${flexData} display: flex; flex-direction: column; justify-content: center;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
-                                <span style="font-size: 0.7rem; font-weight: 700; color: ${titleColor}; letter-spacing: 0.05em;">${statusLabel}</span>
-                                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">${cls.start_time.substring(0, 5)} - ${cls.end_time.substring(0, 5)}</span>
-                            </div>
-                            <strong style="color: #1e293b; font-size: ${isUpcoming ? '0.9rem' : '1.1rem'}; line-height: 1.3;">${cls.subject_code} ${cls.subject_name}</strong>
-                            
-                            <div style="margin-top: 0.5rem; display: flex; flex-direction: column;">
-                                <div style="font-size: 0.8rem; color: #475569; display: flex; justify-content: space-between; align-items: center;">
-                                    <span>${selectedRoom === 'all' ? '' : cls.room_name?.replace('COMPLAB', 'COMLAB')}</span>
-                                    <span style="font-weight: 700; color: #1e1b4b;">Section: ${cls.section || 'N/A'}</span>
+                        slotsHtml += `
+                            <div class="${isOngoing ? 'ongoing-highlight' : ''}" style="${highlightStyle} padding: 0.8rem; border-radius: 8px; margin-bottom: 0.6rem; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-size: 0.65rem; font-weight: 500; background: ${isOngoing ? '#fbbf24' : '#f1f5f9'}; color: ${isOngoing ? '#1e1b4b' : '#64748b'}; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">${status}</span>
+                                    <span style="font-size: 0.72rem; font-weight: 400; color: ${isOngoing ? '#1e1b4b' : '#64748b'}; background: ${isOngoing ? 'rgba(30, 27, 75, 0.1)' : 'transparent'}; padding: ${isOngoing ? '2px 6px' : '0'}; border-radius: 4px;">${fmtT(s.start_time)} - ${fmtT(s.end_time)}</span>
                                 </div>
-                                <div style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #cbd5e1; font-size: 0.85rem; font-weight: 800; color: #4f46e5; display: flex; align-items: center; gap: 4px;">
-                                    <span style="font-size: 0.7rem; opacity: 0.7;">👤</span> ${cls.faculty_name}
+                                <div style="margin-bottom: 4px;">
+                                    <h4 style="font-size: 0.95rem; font-weight: 500; color: ${isOngoing ? '#fbbf24' : '#1e1b4b'}; line-height: 1.3; margin: 0; font-family: 'Inter', sans-serif;">${s.subject_code || ''} ${s.subject_name || ''}</h4>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 5px; color: ${isOngoing ? '#fbbf24' : '#3b82f6'}; font-weight: 500; font-size: 0.8rem;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="opacity: 0.7;"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg> ${lastName}
+                                    </div>
+                                    <div style="font-size: 0.72rem; color: ${isOngoing ? '#fbbf24' : '#64748b'}; font-weight: 400;">
+                                        Sec: ${s.section || '---'}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                     `;
+                        `;
+                    });
                 });
             } else {
-                let vacantStart = "07:30";
-                if (filterDay) {
-                    const previousClasses = schedules.filter(s => s.day === filterDay && s.end_time <= currentTime);
-                    if (previousClasses.length > 0) {
-                        previousClasses.sort((a, b) => b.end_time.localeCompare(a.end_time));
-                        vacantStart = previousClasses[0].end_time.substring(0, 5);
-                    }
-                }
-                let range = `${vacantStart} - 19:00`;
-
-                slotHtml = `
-                    <div style="background: white; padding: 1.5rem; border-radius: 8px; text-align: center; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 120px; position: relative;">
-                         <span style="position: absolute; top: 0.5rem; right: 0.5rem; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; color: #64748b; font-weight: 700;">
-                                ${range}
-                         </span>
-                         <h2 style="font-size: 3rem; font-weight: 900; color: #1e1b4b; margin: 0; letter-spacing: 0.05em; text-transform: uppercase;">VACANT</h2>
+                slotsHtml = `
+                    <div style="background: white; padding: 3rem 1.5rem; border-radius: 12px; text-align: center; color: #94a3b8; border: 2px dashed #f1f5f9; flex-grow: 1; display: flex; align-items: center; justify-content: center;">
+                        <p style="margin: 0; font-weight: 500; opacity: 0.6;">Rest Day</p>
                     </div>
                 `;
             }
 
+            const displayTitle = labName.toUpperCase().replace(/\s+/g, '').replace(/COMP?LAB/g, 'COMLAB').replace(/COMLAB/g, 'COMLAB ');
+
             card.innerHTML = `
-                <h3 style="font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 1rem; color: #1e1b4b; height: 3.5rem; overflow: hidden; display: flex; align-items: center;">${labName.replace('COMPLAB', 'COMLAB')}</h3>
-                <div class="schedule-label" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem;">
-                    <div class="icon">📅</div>
-                    <strong style="font-size: 0.9rem;">${selectedDay === 'all' ? 'Schedules:' : selectedDay + ' Schedule:'}</strong>
+                <h3 style="font-family: 'Playfair Display', serif; font-size: 1.5rem; padding: 1.2rem 1rem 0.6rem; margin: 0; color: #1e1b4b; height: auto; overflow: visible; display: block; font-weight: 600; letter-spacing: -0.3px; line-height: 1.2;">${displayTitle}</h3>
+                <div class="schedule-label" style="display: inline-block; margin-bottom: 0.8rem; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem; color: #1e1b4b; border-bottom: 2px solid #fbbf24; padding-bottom: 6px; margin: 0 0.5rem;">
+                        <div class="icon" style="background: #fbbf24; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1rem; box-shadow: 0 4px 8px rgba(251, 191, 36, 0.1);">
+                            📅
+                        </div>
+                        <strong style="font-size: 0.95rem; font-family: 'Inter', sans-serif; font-weight: 500; letter-spacing: -0.2px;">Schedules:</strong>
+                    </div>
                 </div>
-                
-                <div style="display: flex; flex-direction: column; gap: 0.8rem; flex-grow: 1; height: 100%;">
-                    ${slotHtml}
+                <div class="custom-scrollbar" style="display: flex; flex-direction: column; flex-grow: 1; overflow-y: auto; padding: 1rem; background: #fdfdfd; border-radius: 12px; margin: 0 0.5rem 0.5rem; border: 1px solid #f1f5f9; direction: rtl;">
+                    <div style="direction: ltr;">
+                        ${slotsHtml}
+                    </div>
                 </div>
             `;
+
+
+
+
+
 
             grid.appendChild(card);
         });
@@ -1883,38 +2339,46 @@ async function loadTeacherGrid() {
         const groupedSchedules = await res.json();
 
         const rawNames = Object.keys(groupedSchedules);
+        const orderedNames = rawNames.sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}));
 
         // Helper: display label for teacher in UI (Title Case)
         const getTeacherLabel = (name) => {
             return name.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
         };
 
-        const orderedNames = rawNames.sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}));
-
-        // Populate filter if empty (except "All")
+        // Populate filters if empty
+        const homeTeacherFilter = document.getElementById('homeTeacherFilter');
         if (teacherFilter && teacherFilter.options.length <= 1) {
             orderedNames.forEach(name => {
                 const opt = document.createElement('option');
                 opt.value = name;
                 opt.textContent = getTeacherLabel(name);
                 teacherFilter.appendChild(opt);
+                
+                // Also populate the teacher filter in the schedule view
+                if (homeTeacherFilter) {
+                    const opt2 = opt.cloneNode(true);
+                    homeTeacherFilter.appendChild(opt2);
+                }
             });
         }
 
         const selectedTeacher = teacherFilter?.value || 'all';
 
         grid.innerHTML = `
-            <table class="teacher-table">
-                <thead>
-                    <tr>
-                        <th style="width: 25%;">Teachers</th>
-                        <th style="width: 35%;">Subjects</th>
-                        <th style="width: 30%;">Sections</th>
-                        <th style="width: 10%;">View</th>
-                    </tr>
-                </thead>
-                <tbody id="teacherTableBody"></tbody>
-            </table>
+            <div class="table-container" style="background: white; border-radius: 12px; border: 2.5px solid #1e1b4b; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 100%;">
+                <table class="teacher-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #1e1b4b; color: white;">
+                            <th style="padding: 1.2rem; text-align: left; font-family: 'Playfair Display', serif; font-size: 1.1rem; border: 1px solid rgba(255,255,255,0.1);">Teachers</th>
+                            <th style="padding: 1.2rem; text-align: left; font-family: 'Playfair Display', serif; font-size: 1.1rem; border: 1px solid rgba(255,255,255,0.1);">Subject</th>
+                            <th style="padding: 1.2rem; text-align: left; font-family: 'Playfair Display', serif; font-size: 1.1rem; border: 1px solid rgba(255,255,255,0.1);">Sections</th>
+                            <th style="padding: 1.2rem; text-align: center; font-family: 'Playfair Display', serif; font-size: 1.1rem; border: 1px solid rgba(255,255,255,0.1);">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teacherTableBody"></tbody>
+                </table>
+            </div>
         `;
 
         const tbody = document.getElementById('teacherTableBody');
@@ -1928,10 +2392,20 @@ async function loadTeacherGrid() {
             // Group by subject (combining all sections for that subject)
             const subjectGroups = {};
             baseSchedules.forEach(s => {
-                const subjKey = s.subject_code; // Just the code to match image
+                if (!s.id) {
+                    if (!subjectGroups['none']) {
+                        subjectGroups['none'] = {
+                            name: '---',
+                            sections: new Set(['---']),
+                            schedules: []
+                        };
+                    }
+                    return;
+                }
+                const subjKey = s.subject_code; 
                 if (!subjectGroups[subjKey]) {
                     subjectGroups[subjKey] = {
-                        name: `${s.subject_code} \u2013 ${s.subject_name} `,
+                        name: `${s.subject_code || ''} - ${s.subject_name || ''}`,
                         sections: new Set(),
                         schedules: []
                     };
@@ -1951,6 +2425,9 @@ async function loadTeacherGrid() {
                     const nameTd = document.createElement('td');
                     nameTd.className = 'teacher-name-cell';
                     nameTd.rowSpan = subjects.length;
+                    nameTd.style.padding = '1rem';
+                    nameTd.style.fontWeight = '700';
+                    nameTd.style.color = '#1e1b4b';
                     nameTd.textContent = getTeacherLabel(teacherName);
                     tr.appendChild(nameTd);
                 }
@@ -1958,23 +2435,43 @@ async function loadTeacherGrid() {
                 // Subject Cell
                 const subjTd = document.createElement('td');
                 subjTd.className = 'subject-cell';
-                subjTd.textContent = group.name;
+                subjTd.style.padding = '1rem';
+                subjTd.innerHTML = group.name.includes(' - ') 
+                    ? `<span class="subj-code">${group.name.split(' - ')[0]}</span><span class="subj-name" style="display: block; font-size: 0.85rem; color: #64748b; font-weight: 500;">${group.name.split(' - ')[1]}</span>`
+                    : `<span class="subj-code">${group.name}</span>`;
                 tr.appendChild(subjTd);
 
-                // Section Cell
-                const secTd = document.createElement('td');
-                secTd.className = 'section-cell';
-                secTd.textContent = Array.from(group.sections).sort().join(', ') || 'N/A';
-                tr.appendChild(secTd);
+                // Sections Cell
+                const sectionsTd = document.createElement('td');
+                sectionsTd.className = 'section-cell';
+                sectionsTd.style.padding = '1rem';
+                sectionsTd.style.color = '#64748b';
+                sectionsTd.style.fontWeight = '600';
+                sectionsTd.style.fontSize = '0.9rem';
+                sectionsTd.textContent = Array.from(group.sections).sort().join(', ') || '---';
+                tr.appendChild(sectionsTd);
 
-                // View Cell
+                // Action Cell
                 const viewTd = document.createElement('td');
                 viewTd.className = 'view-btn-cell';
-                const btn = document.createElement('button');
-                btn.className = 'view-btn';
-                // Pass the teacher's full schedule to the view
-                btn.onclick = () => viewTeacherSchedule(teacherName, baseSchedules);
-                viewTd.appendChild(btn);
+                viewTd.style.textAlign = 'center';
+                viewTd.style.padding = '1rem';
+                
+                const eyeSpan = document.createElement('span');
+                eyeSpan.className = 'icon-view-new';
+                eyeSpan.style.cursor = 'pointer';
+                eyeSpan.style.color = '#1e1b4b';
+                eyeSpan.style.transition = 'all 0.2s';
+                eyeSpan.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`;
+                eyeSpan.title = "View Schedule";
+                
+                eyeSpan.onclick = () => viewTeacherSchedule(teacherName, baseSchedules);
+                
+                // Add hover effect
+                eyeSpan.onmouseover = () => { eyeSpan.style.transform = 'scale(1.2)'; };
+                eyeSpan.onmouseout = () => { eyeSpan.style.transform = 'scale(1)'; };
+
+                viewTd.appendChild(eyeSpan);
                 tr.appendChild(viewTd);
 
                 tbody.appendChild(tr);
@@ -1993,12 +2490,10 @@ function renderSlot(classData, label, isTeacher = false) {
     return `
         <div style="background: #e5e7eb; padding: 0.8rem; border-radius: 8px;">
             <div style="display: flex; flex-direction: column; gap: 4px;">
-                <p style="font-size: 0.75rem; color: #4f46e5; font-weight: 800; margin-bottom: 0.2rem; line-height: 1.2;">${label.toUpperCase()}</p>
-                <p style="font-size: 0.8rem; color: #475569;"><strong>Time:</strong> ${classData.start_time.substring(0, 5)} - ${classData.end_time.substring(0, 5)}</p>
-                <p style="font-size: 0.8rem; color: #475569;"><strong>Section:</strong> ${classData.section || 'N/A'}</p>
-                <p style="font-size: 0.8rem; color: #475569; border-top: 1px dashed #cbd5e1; margin-top: 4px; padding-top: 4px;">
-                    <strong>${isTeacher ? 'Room' : 'Teacher'}:</strong> ${isTeacher ? (classData.room_name?.replace('COMPLAB', 'COMLAB') || 'N/A') : classData.faculty_name}
-                </p>
+                <p style="font-size: 0.75rem; color: #4f46e5; font-weight: 500; margin-bottom: 0.2rem; line-height: 1.2;">${label.toUpperCase()}</p>
+                <p style="font-size: 0.8rem; color: #475569;">${isTeacher ? 'Room' : 'Teacher'}: ${isTeacher ? (classData.room_name?.replace('COMPLAB', 'COMLAB') || 'N/A') : classData.faculty_name}</p>
+                <p style="font-size: 0.8rem; color: #475569;">Time: ${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}</p>
+                <p style="font-size: 0.8rem; color: #475569;">Section: ${classData.section || 'N/A'}</p>
             </div>
         </div>
     `;
@@ -2017,6 +2512,7 @@ function viewTeacherSchedule(teacherName, schedules) {
     // Group by base subject (pairing Lec and Lab)
     const subjectList = {};
     schedules.forEach(s => {
+        if (!s.id || !s.subject_code) return; // Skip empty/dummy rows
         const baseCode = s.subject_code.replace(/L$/, '');
         if (!subjectList[baseCode]) subjectList[baseCode] = { base: baseCode, subs: {} };
 
@@ -2031,27 +2527,47 @@ function viewTeacherSchedule(teacherName, schedules) {
     });
 
     let html = `
-        <div style="background: #111827; color: white; padding: 2rem 1.5rem; border-radius: 12px; margin-bottom: 2rem; display: flex; align-items: center; gap: 1.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
-            <div style="width: 70px; height: 70px; background: #1e1b4b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 900; color: white;">
+        <div style="background: #1e1b4b; color: white; padding: 2.2rem 2rem; border-radius: 16px; margin-bottom: 2.5rem; display: flex; align-items: center; gap: 2rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.1);">
+            <div style="width: 85px; height: 85px; background: #fbbf24; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; font-weight: 800; color: #1e1b4b; box-shadow: 0 10px 15px -3px rgba(251, 191, 36, 0.3); transform: rotate(-3deg);">
                 ${teacherName.charAt(0)}
             </div>
             <div>
-                <h2 style="margin: 0; font-size: 1.8rem; letter-spacing: 0.5px;">${teacherName}</h2>
-                <p style="margin: 4px 0 0; color: #94a3b8; font-size: 0.9rem; font-weight: 500;">Faculty Schedule - Weekly Overview</p>
+                <h2 style="margin: 0; font-size: 2.2rem; letter-spacing: -0.5px; font-family: 'Playfair Display', serif; font-weight: 800; color: #ffffff;">${teacherName}</h2>
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+                    <span style="display: inline-block; width: 10px; height: 10px; background: #fbbf24; border-radius: 50%;"></span>
+                    <p style="margin: 0; color: #fbbf24; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Faculty Schedule - Weekly Overview</p>
+                </div>
             </div>
         </div>
     `;
 
-    Object.keys(subjectList).sort().forEach(baseKey => {
-        const group = subjectList[baseKey];
+    const now = new Date();
+    const todayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()];
+    // format as HH:MM:SS (24hr)
+    const currentHr = now.getHours().toString().padStart(2, '0');
+    const currentMin = now.getMinutes().toString().padStart(2, '0');
+    const currentSec = now.getSeconds().toString().padStart(2, '0');
+    const currentTimeStr = `${currentHr}:${currentMin}:${currentSec}`;
 
+    const sortedSubjectKeys = Object.keys(subjectList).sort();
+    
+    if (sortedSubjectKeys.length === 0) {
         html += `
-            <div style="margin-bottom: 2rem; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                <div style="background: #f9fafb; padding: 1rem 1.5rem; border-bottom: 2px solid #1e1b4b;">
-                    <h3 style="margin: 0; color: #111827; font-size: 1.1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">SUBJECT: ${baseKey}</h3>
-                </div>
-                <div style="padding: 0.5rem 1.5rem 1.5rem 1.5rem;">
+            <div style="background: white; padding: 4rem 2rem; border-radius: 16px; text-align: center; border: 2px dashed #e2e8f0; color: #94a3b8; margin: 2rem 0;">
+                <p style="font-size: 1.2rem; font-weight: 500; margin: 0; opacity: 0.7;">Rest Day (No Active Assignments)</p>
+            </div>
         `;
+    } else {
+        sortedSubjectKeys.forEach(baseKey => {
+            const group = subjectList[baseKey];
+            html += `
+                <div style="margin-bottom: 2.5rem; border: 1.5px solid #e2e8f0; border-radius: 16px; overflow: hidden; background: white; box-shadow: 0 8px 15px -3px rgba(0,0,0,0.03);">
+                    <div style="background: #f8fafc; padding: 1.25rem 2rem; border-bottom: 3.5px solid #fbbf24; display: flex; align-items: center; gap: 12px;">
+                        <div style="background: #1e1b4b; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1rem;">📚</div>
+                        <h3 style="margin: 0; color: #1e1b4b; font-size: 1.15rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px;">SUBJECT: ${baseKey}</h3>
+                    </div>
+                    <div style="padding: 0.5rem 2rem 2rem 2rem;">
+            `;
 
         Object.keys(group.subs).sort().forEach(subCode => {
             const sub = group.subs[subCode];
@@ -2064,31 +2580,74 @@ function viewTeacherSchedule(teacherName, schedules) {
             });
 
             sortedItems.forEach(s => {
+                const isOngoing = (s.day === todayName) && (currentTimeStr >= s.start_time && currentTimeStr < s.end_time);
+                const highlightStyle = isOngoing ? 'background: rgba(251, 191, 36, 0.15); border: 2px solid #fbbf24; border-left: 6px solid #fbbf24;' : '';
+                const textColor = isOngoing ? '#fbbf24' : '#1e1b4b';
+
                 html += `
-                    <div style="display: grid; grid-template-columns: 140px 1fr 140px 160px 1fr; gap: 15px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; align-items: center;">
-                        <span style="background: #1e1b4b; color: white; padding: 4px 0; border-radius: 20px; font-weight: 900; font-size: 0.8rem; text-align: center; width: 110px;">${s.subject_code}</span>
-                        <div style="font-size: 0.95rem; font-weight: 700; color: #111827;">${s.section || '---'}</div>
-                        <div style="font-size: 0.9rem; color: #374151; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">${s.day}</div>
-                        <div style="font-size: 0.9rem; color: #4b5563; font-weight: 600;">${s.start_time.substring(0, 5)} - ${s.end_time.substring(0, 5)}</div>
-                        <div style="font-size: 0.9rem; color: #6b7280; font-weight: 500;">${s.room_name?.replace('COMPLAB', 'COMLAB')}</div>
+                    <div class="${isOngoing ? 'ongoing-highlight' : ''}" style="display: grid; grid-template-columns: 140px 1fr 140px 160px 1fr; gap: 20px; padding: 16px 12px; border-bottom: 1px solid #f1f5f9; align-items: center; transition: background 0.2s; ${highlightStyle} border-radius: 8px; margin: 4px 0;">
+                        <span style="background: ${isOngoing ? '#fbbf24' : '#1e1b4b'}; color: ${isOngoing ? '#1e1b4b' : 'white'}; padding: 6px 12px; border-radius: 10px; font-weight: 800; font-size: 0.75rem; text-align: center; letter-spacing: 0.5px;">${s.subject_code}</span>
+                        <div style="font-size: 1rem; font-weight: 800; color: ${textColor}; font-family: 'Inter', sans-serif;" class="adaptive-text">${s.section || '---'}</div>
+                        <div style="font-size: 0.9rem; color: #fbbf24; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">${s.day}</div>
+                        <div style="font-size: 0.95rem; color: ${isOngoing ? '#ffffff' : textColor}; font-weight: 800; background: ${isOngoing ? 'rgba(30, 27, 75, 0.4)' : '#ffffff'}; padding: 6px 14px; border-radius: 12px; border: 1px solid #fbbf24; width: fit-content; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">${formatTime(s.start_time)} - ${formatTime(s.end_time)}</div>
+                        <div style="font-size: 0.9rem; color: ${isOngoing ? '#fbbf24' : '#64748b'}; font-weight: 600; font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 6px;" class="adaptive-text-muted">
+                            <span style="opacity: 0.8;">📍</span> ${s.room_name?.replace('COMPLAB', 'COMLAB')}
+                        </div>
                     </div>
                 `;
             });
         });
 
         html += `</div></div>`;
-    });
+        });
+    }
 
     content.innerHTML = html;
+    if (document.getElementById('modalEditBtn')) {
+        document.getElementById('modalEditBtn').style.display = 'none';
+    }
     modal.style.display = 'flex';
 }
 
-function viewLabSchedule(labName, schedules) {
+function viewLabSchedule(labName, schedules, canEdit = true) {
     const modal = document.getElementById('labModal');
     const title = document.getElementById('labModalTitle');
     const content = document.getElementById('labModalContent');
+    const editBtn = document.getElementById('modalEditBtn');
+
+    window.isModalInEditMode = canEdit;
+    window.editingSchedulesIds = new Set(); // Reset editing state
+    window.modalSchedules = schedules;
+    window.modalLabName = labName;
+    
     title.textContent = `${labName?.replace('COMPLAB', 'COMLAB')} Weekly Schedule`;
     renderScheduleTable(schedules, content, false);
+    
+    if (editBtn) editBtn.style.display = 'none'; 
+    
+    const headerButtons = modal.querySelector('div[style*="display: flex; gap: 10px;"]');
+    const footer = document.getElementById('labModalFooter');
+
+    if (headerButtons) {
+        headerButtons.style.display = canEdit ? 'none' : 'flex';
+        headerButtons.innerHTML = `
+            <button onclick="closeLabModalInternal()" style="background: var(--secondary); border: none; padding: 0.5rem 1.5rem; border-radius: 8px; cursor: pointer; font-weight: 700; color: #1e1b4b; transition: all 0.2s;" onmouseover="this.style.background='#ffdf8f'" onmouseout="this.style.background='#fbbf24'">Close</button>
+        `;
+    }
+
+    if (footer) {
+        footer.style.display = canEdit ? 'flex' : 'none';
+        const saveBtn = footer.querySelector('button');
+        if (saveBtn) saveBtn.textContent = 'Save Changes';
+    }
+
+    // Pre-fetch faculty list for the teacher dropdown in inline edit forms
+    if (canEdit && (!window.cachedFaculty || window.cachedFaculty.length === 0)) {
+        fetch('api/faculty.php', { cache: 'no-store' })
+            .then(r => r.json())
+            .then(f => { window.cachedFaculty = f; });
+    }
+    
     modal.style.display = 'flex';
 }
 
@@ -2144,17 +2703,17 @@ function renderScheduleTable(schedules, container, isTeacherView) {
                     <option value="10:00">10:00 - 12:00</option>
                     <option value="13:00">1:00 - 3:00</option>
                     <option value="15:00">3:00 - 5:00</option>
-                    <option value="17:00">5:00 - 7:00</option>
+                    <option value="17:00">5:00 - 7:00 PM</option>
                 `;
             } else if (day !== 'all') {
                 timeOptions += `
-                    <option value="07:30">7:30 - 9:00</option>
-                    <option value="09:00">9:00 - 10:30</option>
-                    <option value="10:30">10:30 - 12:00</option>
-                    <option value="13:00">1:00 - 2:30</option>
-                    <option value="14:30">2:30 - 4:00</option>
-                    <option value="16:00">4:00 - 5:30</option>
-                    <option value="17:30">5:30 - 7:00</option>
+                    <option value="07:30">7:30 - 9:00 AM</option>
+                    <option value="09:00">9:00 - 10:30 AM</option>
+                    <option value="10:30">10:30 - 12:00 PM</option>
+                    <option value="13:00">1:00 - 2:30 PM</option>
+                    <option value="14:30">2:30 - 4:00 PM</option>
+                    <option value="16:00">4:00 - 5:30 PM</option>
+                    <option value="17:30">5:30 - 7:00 PM</option>
                 `;
             }
             timeFilter.innerHTML = timeOptions;
@@ -2186,6 +2745,14 @@ function renderModalGrid(schedules, container, isTeacherView) {
         groupedByDay[s.day].push(s);
     });
 
+    const now = new Date();
+    const todayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()];
+    // format as HH:MM:SS (24hr)
+    const currentHr = now.getHours().toString().padStart(2, '0');
+    const currentMin = now.getMinutes().toString().padStart(2, '0');
+    const currentSec = now.getSeconds().toString().padStart(2, '0');
+    const currentTime = `${currentHr}:${currentMin}:${currentSec}`;
+
     let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">';
     daysOrder.forEach(day => {
         const dayScheds = groupedByDay[day] || [];
@@ -2193,49 +2760,117 @@ function renderModalGrid(schedules, container, isTeacherView) {
             dayScheds.sort((a, b) => a.start_time.localeCompare(b.start_time));
             html += `
                 <div style="background: #f8fafc; border-radius: 12px; padding: 1.5rem; border: 1px solid #e2e8f0;">
-                    <h4 style="color: #4f46e5; border-bottom: 2px solid #1e1b4b; display: inline-block; margin-bottom: 1rem; padding-bottom: 0.2rem;">${day}</h4>
+                    <h4 style="color: #4f46e5; border-bottom: 2px solid #fbbf24; display: inline-block; margin-bottom: 1rem; padding-bottom: 0.2rem; font-weight: 500;">${day}</h4>
                     <div style="display: flex; flex-direction: column; gap: 0.8rem;">
             `;
             dayScheds.forEach(s => {
-                // Helper to format time for Wednesday (12-hour, no AM/PM, no leading zero)
-                const formatTime = (t) => {
-                    if (day === 'Wednesday') {
-                        let [h, m] = t.split(':');
-                        h = parseInt(h);
-                        if (h > 12) h -= 12;
-                        return `${h}:${m}`;
-                    }
-                    return t.substring(0, 5);
+                const formatTimeDisplay = (t) => {
+                    if (!t) return '---';
+                    const parts = t.split(':');
+                    let h = parseInt(parts[0]);
+                    const m = parts[1];
+                    const ampm = h >= 12 ? 'PM' : 'AM';
+                    h = h % 12 || 12;
+                    return `${h}:${m} ${ampm}`;
                 };
 
-                // Render VACANT card if this is a VACANT slot
+                const isOngoing = (day === todayName) && (currentTime >= s.start_time && currentTime < s.end_time);
+                const highlightStyle = isOngoing ? 'background: rgba(251, 191, 36, 0.15); border: 2px solid #fbbf24; border-left: 6px solid #fbbf24;' : 'background: white; border: 1px solid #e2e8f0;';
+                
+                const formatTime = (t) => t.substring(0, 5);
+                const isEditing = window.editingSchedulesIds && window.editingSchedulesIds.has(String(s.id));
+
                 if (s.subject_code === 'VACANT') {
                     html += `
                         <div style="background: white; padding: 0.8rem; border-radius: 8px; border: 1px dashed #cbd5e1; text-align: center; position: relative;">
-                            <span style="position: absolute; top: 0.4rem; right: 0.6rem; font-size: 0.72rem; color: #64748b; font-weight: 700; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">
+                            <span style="position: absolute; top: 0.4rem; right: 0.6rem; font-size: 0.72rem; color: #64748b; font-weight: 500; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">
                                 ${formatTime(s.start_time)} - ${formatTime(s.end_time)}
                             </span>
-                            <h3 style="font-size: 1.6rem; font-weight: 900; color: #1e1b4b; margin: 0.3rem 0 0 0; letter-spacing: 0.05em;">VACANT</h3>
+                            <h3 style="font-size: 1.6rem; font-weight: 500; color: #1e1b4b; margin: 0.3rem 0 0 0; letter-spacing: 0.05em;">VACANT</h3>
                         </div>
                     `;
                     return;
                 }
 
-                // Render Actual Schedule
-                html += `
-                    <div style="background: white; padding: 0.8rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-                            <strong style="color: #1e1b4b; font-size: 0.9rem;">${s.subject_code} ${s.subject_name}</strong>
-                            <span style="font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-weight: 600;">
-                                ${formatTime(s.start_time)} - ${formatTime(s.end_time)}
-                            </span>
+                if (isEditing) {
+                    // Build teacher options from cached faculty
+                    const facultyOptions = (window.cachedFaculty || []).map(f =>
+                        `<option value="${f.id}" ${f.id == s.faculty_id ? 'selected' : ''}>${f.name}</option>`
+                    ).join('');
+
+                    html += `
+                        <div style="background: #fffbeb; padding: 1rem; border-radius: 12px; border: 2px solid #fbbf24; box-shadow: 0 4px 12px rgba(251, 191, 36, 0.1); position: relative;">
+                            <div style="display: grid; gap: 10px;">
+                                <div style="display: flex; gap: 8px;">
+                                    <div style="flex: 1;">
+                                        <label style="display: block; font-size: 0.65rem; font-weight: 600; color: #92400e; margin-bottom: 3px; text-transform: uppercase;">Code</label>
+                                        <input type="text" id="edit_code_${s.id}" value="${s.subject_code}" style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 0.85rem; font-weight: 600; color: #1e1b4b;">
+                                    </div>
+                                    <div style="flex: 2;">
+                                        <label style="display: block; font-size: 0.65rem; font-weight: 600; color: #92400e; margin-bottom: 3px; text-transform: uppercase;">Subject Name</label>
+                                        <input type="text" id="edit_name_${s.id}" value="${s.subject_name}" style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 0.85rem;">
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <div style="flex: 1;">
+                                        <label style="display: block; font-size: 0.65rem; font-weight: 600; color: #92400e; margin-bottom: 3px; text-transform: uppercase;">Section</label>
+                                        <input type="text" id="edit_sec_${s.id}" value="${s.section || ''}" style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 0.85rem;">
+                                    </div>
+                                    <div style="flex: 1.5;">
+                                        <label style="display: block; font-size: 0.65rem; font-weight: 600; color: #92400e; margin-bottom: 3px; text-transform: uppercase;">Start (HH:MM)</label>
+                                        <input type="time" id="edit_start_${s.id}" value="${formatTime(s.start_time)}" style="width: 100%; padding: 5px 8px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 0.85rem;">
+                                    </div>
+                                    <div style="flex: 1.5;">
+                                        <label style="display: block; font-size: 0.65rem; font-weight: 600; color: #92400e; margin-bottom: 3px; text-transform: uppercase;">End (HH:MM)</label>
+                                        <input type="time" id="edit_end_${s.id}" value="${formatTime(s.end_time)}" style="width: 100%; padding: 5px 8px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 0.85rem;">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.65rem; font-weight: 600; color: #92400e; margin-bottom: 3px; text-transform: uppercase;">Teacher</label>
+                                    <select id="edit_faculty_${s.id}" style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 0.85rem; background: white;" onchange="if(this.value === 'add_teacher'){ document.getElementById('edit_faculty_new_${s.id}').style.display='block'; document.getElementById('edit_faculty_name_${s.id}').focus(); } else { document.getElementById('edit_faculty_new_${s.id}').style.display='none'; }">
+                                        ${facultyOptions || `<option value="" selected>${s.faculty_name || 'Select Teacher'}</option>`}
+                                        <option value="add_teacher" style="color: #4f46e5; font-weight: 500;">+ add a teacher</option>
+                                    </select>
+                                    <div id="edit_faculty_new_${s.id}" style="display: none; margin-top: 6px; border: 2px dashed #fbbf24; padding: 8px; border-radius: 10px; background: rgba(30, 27, 75, 0.05);">
+                                        <input type="text" id="edit_faculty_name_${s.id}" placeholder="Enter New Teacher Name" style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #fcd34d; font-size: 0.85rem;">
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                                    <button onclick="saveInlineEntry(${s.id})" style="flex: 1; background: #10b981; color: white; border: none; padding: 7px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Save Changes</button>
+                                    <button onclick="toggleInlineEdit(${s.id})" style="background: transparent; color: #92400e; border: 1px solid #fcd34d; padding: 7px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">Discard</button>
+                                </div>
+                            </div>
                         </div>
-                        <p style="font-size: 0.8rem; color: #475569;"><strong>Section:</strong> ${s.section || 'N/A'}</p>
-                        <p style="font-size: 0.8rem; color: #4f46e5; font-weight: 700; border-top: 1px dashed #cbd5e1; margin-top: 5px; padding-top: 5px;">
-                            ${isTeacherView ? 'Room: ' + s.room_name?.replace('COMPLAB', 'COMLAB') : 'Teacher: ' + s.faculty_name}
-                        </p>
-                    </div>
-                `;
+                    `;
+                } else {
+                    html += `
+                        <div class="${isOngoing ? 'ongoing-highlight' : ''}" style="${highlightStyle} padding: 0.8rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative;">
+                            ${window.isModalInEditMode ? `
+                                <div style="position: absolute; top: 0.5rem; right: 0.5rem; display: flex; gap: 8px; align-items: center;">
+                                    <button onclick="toggleInlineEdit(${s.id})" style="background: #1e1b4b; color: white; border: none; width: 34px; height: 34px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; transition: all 0.2s; box-shadow: 0 4px 8px rgba(30, 27, 75, 0.2);" title="Edit Entry" onmouseover="this.style.background='#4338ca'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='#1e1b4b'; this.style.transform='scale(1)'">✏️</button>
+                                    <button onclick="deleteScheduleEntry(${s.id})" style="background: #ef4444; color: white; border: none; width: 34px; height: 34px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 8px rgba(239, 68, 68, 0.2);" title="Delete Entry" onmouseover="this.style.background='#dc2626'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='#ef4444'; this.style.transform='scale(1)'">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                    </button>
+                                </div>
+                            ` : ''}
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem; padding-right: ${window.isModalInEditMode ? '84px' : '0'};">
+                                <div>
+                                    <span style="font-size: 0.72rem; font-weight: 500; color: ${isOngoing ? '#fbbf24' : '#64748b'}; letter-spacing: 0.3px; display: block;">${s.subject_code}</span>
+                                    <strong style="color: ${isOngoing ? '#fbbf24' : '#1e1b4b'}; font-size: 0.9rem; font-weight: 500;">${s.subject_name}</strong>
+                                </div>
+                                <span style="font-size: 0.75rem; color: ${isOngoing ? '#ffffff' : '#64748b'}; background: ${isOngoing ? 'rgba(30, 27, 75, 0.4)' : '#f1f5f9'}; padding: 2px 6px; border-radius: 4px; font-weight: 400; white-space: nowrap; margin-left: 8px; flex-shrink: 0;">
+                                    ${formatTimeDisplay(s.start_time)} - ${formatTimeDisplay(s.end_time)}
+                                </span>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 2px;">
+                                <p style="font-size: 0.8rem; color: ${isOngoing ? '#fbbf24' : '#475569'}; margin: 0; font-weight: 400;"><strong>Section:</strong> ${s.section || 'N/A'}</p>
+                                <p style="font-size: 0.8rem; color: ${isOngoing ? '#fbbf24' : '#475569'}; border-top: 1px dashed ${isOngoing ? 'rgba(251, 191, 36, 0.3)' : '#cbd5e1'}; margin-top: 5px; padding-top: 5px; margin-bottom: 0; font-weight: 400;">
+                                    <strong>${isTeacherView ? 'Room: ' : 'Teacher: '}</strong> ${isTeacherView ? (s.room_name || '').replace('COMPLAB', 'COMLAB') : (s.faculty_name || '')}
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }
             });
             html += '</div></div > ';
         }
@@ -2250,7 +2885,7 @@ function closeLabModal() {
 
 async function populateSubjectDropdowns() {
     try {
-        const res = await fetch('api/subjects.php');
+        const res = await fetch(`api/subjects.php?term_id=${window.activeTermId}`);
         const subjects = await res.json();
 
         const subjectFilter = document.getElementById('subjectsManagementFilter');
@@ -2281,7 +2916,8 @@ async function populateRoomDropdowns() {
             const currentVal = roomFilter.value;
             roomFilter.innerHTML = '<option value="all">All Schedule</option>';
             rooms.forEach(room => {
-                roomFilter.innerHTML += `<option value="${room.name}">${room.name}</option>`;
+                const displayName = room.name.replace(/COMPLAB/g, 'COMLAB');
+                roomFilter.innerHTML += `<option value="${room.name}">${displayName}</option>`;
             });
             roomFilter.value = currentVal;
             if (!roomFilter.value) roomFilter.value = 'all';
@@ -2291,7 +2927,8 @@ async function populateRoomDropdowns() {
             const currentVisualVal = visualFilter.value;
             visualFilter.innerHTML = '<option value="all">All schedule</option>';
             rooms.forEach(room => {
-                visualFilter.innerHTML += `<option value="${room.name}">${room.name}</option>`;
+                const displayName = room.name.replace(/COMPLAB/g, 'COMLAB');
+                visualFilter.innerHTML += `<option value="${room.name}">${displayName}</option>`;
             });
             visualFilter.value = currentVisualVal;
             if (!visualFilter.value) visualFilter.value = 'all';
@@ -2302,7 +2939,8 @@ async function populateRoomDropdowns() {
             const currentVal = managementFilter.value;
             managementFilter.innerHTML = '<option value="all">All Available Rooms</option>';
             rooms.forEach(room => {
-                managementFilter.innerHTML += `<option value="${room.name}">${room.name}</option>`;
+                const displayName = room.name.replace(/COMPLAB/g, 'COMLAB');
+                managementFilter.innerHTML += `<option value="${room.name}">${displayName}</option>`;
             });
             managementFilter.value = currentVal;
             if (!managementFilter.value) managementFilter.value = 'all';
@@ -2312,6 +2950,594 @@ async function populateRoomDropdowns() {
     }
 }
 
-// Initialization
+// Initial setup
 checkAuth();
 populateRoomDropdowns();
+
+async function deleteScheduleEntry(id) {
+    if (!confirm('Are you sure you want to delete this schedule entry?')) return;
+    try {
+        const res = await fetch(`api/schedules.php?id=${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            // Remove from local modal list
+            window.modalSchedules = window.modalSchedules.filter(s => s.id != id);
+            window.updateModalFilters();
+            // Refresh global views
+            loadSectionData('home');
+            renderSchedulesVisualGrid();
+        } else {
+            alert('Error deleting: ' + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Fetch error');
+    }
+}
+
+function toggleInlineEdit(id) {
+    id = String(id);
+    if (!window.editingSchedulesIds) window.editingSchedulesIds = new Set();
+    if (window.editingSchedulesIds.has(id)) {
+        window.editingSchedulesIds.delete(id);
+    } else {
+        window.editingSchedulesIds.add(id);
+    }
+    renderScheduleTable(window.modalSchedules, document.getElementById('labModalContent'), false);
+}
+
+async function saveInlineEntry(id) {
+    id = String(id);
+    const codeEl  = document.getElementById(`edit_code_${id}`);
+    const nameEl  = document.getElementById(`edit_name_${id}`);
+    const secEl   = document.getElementById(`edit_sec_${id}`);
+    const startEl = document.getElementById(`edit_start_${id}`);
+    const endEl   = document.getElementById(`edit_end_${id}`);
+    const facEl   = document.getElementById(`edit_faculty_${id}`);
+    const facNameEl = document.getElementById(`edit_faculty_name_${id}`);
+
+    if (!codeEl) return;
+
+    const saveBtn = codeEl.closest('div[style*="background: #fffbeb"]')?.querySelector('button[onclick*="saveInlineEntry"]');
+    if (saveBtn) { saveBtn.textContent = 'Saving...'; saveBtn.disabled = true; }
+
+    let faculty_id = facEl ? facEl.value : '';
+    let faculty_name = (faculty_id === 'add_teacher' && facNameEl) ? facNameEl.value : '';
+
+    const data = {
+        subject_code: codeEl.value,
+        subject_name: nameEl.value,
+        section:      secEl.value,
+        start_time:   startEl.value,
+        end_time:     endEl.value,
+        faculty_id:   (faculty_id === 'add_teacher') ? '' : faculty_id,
+        faculty_name: faculty_name
+    };
+
+    try {
+        const res = await fetch(`api/schedules.php?id=${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.success) {
+            // Remove from editing set and re-fetch modal data
+            window.editingSchedulesIds.delete(id);
+            loadLabGrid();
+            if (typeof renderSchedulesVisualGrid === 'function') renderSchedulesVisualGrid();
+            const all = await fetch(`api/schedules.php?term_id=${window.activeTermId}`).then(r => r.json());
+            window.modalSchedules = all.filter(s => s.room_name === window.modalLabName);
+            renderScheduleTable(window.modalSchedules, document.getElementById('labModalContent'), false);
+        } else {
+            alert('Save failed: ' + (result.error || 'Unknown error'));
+            if (saveBtn) { saveBtn.textContent = 'Save Changes'; saveBtn.disabled = false; }
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Network error during save.');
+        if (saveBtn) { saveBtn.textContent = 'Save Changes'; saveBtn.disabled = false; }
+    }
+}
+
+async function confirmLabModalChanges() {
+    const ids = Array.from(window.editingSchedulesIds || []);
+    if (ids.length === 0) {
+        closeLabModal();
+        return;
+    }
+
+    const btn = document.querySelector('#labModalFooter button');
+    const originalText = btn.textContent;
+    btn.textContent = 'Saving...';
+    btn.disabled = true;
+
+    try {
+        // Load faculty list if not already cached (needed for teacher dropdown)
+        if (!window.cachedFaculty || window.cachedFaculty.length === 0) {
+            const fr = await fetch('api/faculty.php', { cache: 'no-store' });
+            window.cachedFaculty = await fr.json();
+        }
+
+        const promises = ids.map(id => {
+            const codeEl = document.getElementById(`edit_code_${id}`);
+            const nameEl = document.getElementById(`edit_name_${id}`);
+            const secEl  = document.getElementById(`edit_sec_${id}`);
+            const startEl= document.getElementById(`edit_start_${id}`);
+            const endEl  = document.getElementById(`edit_end_${id}`);
+            const facEl  = document.getElementById(`edit_faculty_${id}`);
+            const facNameEl = document.getElementById(`edit_faculty_name_${id}`);
+
+            if (!codeEl) return Promise.resolve({ success: false, error: `Fields missing for id ${id}` });
+
+            let faculty_id = facEl ? facEl.value : '';
+            let faculty_name = (faculty_id === 'add_teacher' && facNameEl) ? facNameEl.value : '';
+
+            const data = {
+                subject_code: codeEl.value,
+                subject_name: nameEl.value,
+                section: secEl.value,
+                start_time: startEl.value,
+                end_time: endEl.value,
+                faculty_id: (faculty_id === 'add_teacher') ? '' : faculty_id,
+                faculty_name: faculty_name,
+                term_id: window.activeTermId
+            };
+            return fetch(`api/schedules.php?id=${id}&term_id=${window.activeTermId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            }).then(r => r.json());
+        });
+
+        const results = await Promise.all(promises);
+        const failed = results.filter(r => !r.success);
+        
+        if (failed.length > 0) {
+            alert('Some changes failed to save. Please check your data.');
+        } else {
+            // Success!
+            window.editingSchedulesIds.clear();
+            loadLabGrid();
+            if (typeof renderSchedulesVisualGrid === 'function') renderSchedulesVisualGrid();
+            
+            // Re-fetch current lab schedules to update the modal view too
+            const res = await fetch(`api/schedules.php?term_id=${window.activeTermId}`);
+            const all = await res.json();
+            window.modalSchedules = all.filter(s => s.room_name === window.modalLabName);
+            renderScheduleTable(window.modalSchedules, document.getElementById('labModalContent'), false);
+            
+            // Close after a short delay or just stay open? 
+            // The prompt says "After saving, the modal and the system should immediately reflect the updated schedule."
+            // So we stay open but reflect changes.
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Fetch error during save.');
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+function openEditScheduleModal(id) {
+    // Re-routed to inline editing
+    toggleInlineEdit(id);
+}
+
+function closeLabModalInternal() {
+    closeLabModal();
+}
+
+function confirmScheduleEdit(id) {
+    // Opens the standard edit modal as saving is currently centralized there
+    openEditScheduleModal(id);
+}
+
+function cancelScheduleEdit(id) {
+    // Just a placeholder for refresh or cancel state if needed
+    console.log('Discarding temporary changes for entry:', id);
+}
+
+// User Profile Logic
+async function loadUserProfile() {
+    try {
+        const res = await fetch('api/profile.php');
+        const data = await res.json();
+        if (data.success && data.profile) {
+            updateProfileUI(data.profile);
+        }
+    } catch (e) {
+        console.error("Failed to load user profile", e);
+    }
+}
+
+function updateProfileUI(profile) {
+    const headerImg = document.getElementById('headerProfileImage');
+    const headerInitials = document.getElementById('headerProfileInitials');
+    const modalImg = document.getElementById('profileModalImagePreview');
+    const modalInitials = document.getElementById('profileModalInitials');
+    
+    // Update labels in modal
+    document.getElementById('p_username').value = profile.username;
+    document.getElementById('p_display_name').value = profile.display_name;
+
+    const initial = profile.display_name.charAt(0).toUpperCase();
+
+    if (profile.profile_picture) {
+        // has picture
+        if (headerImg) { headerImg.src = profile.profile_picture; headerImg.style.display = 'block'; }
+        if (headerInitials) headerInitials.style.display = 'none';
+
+        if (modalImg) { modalImg.src = profile.profile_picture; modalImg.style.display = 'block'; }
+        if (modalInitials) modalInitials.style.display = 'none';
+    } else {
+        // no picture
+        if (headerImg) headerImg.style.display = 'none';
+        if (headerInitials) { headerInitials.textContent = initial; headerInitials.style.display = 'flex'; }
+
+        if (modalImg) modalImg.style.display = 'none';
+        if (modalInitials) { modalInitials.textContent = initial; modalInitials.style.display = 'block'; }
+    }
+}
+
+function openUserProfile() {
+    const overlay = document.getElementById('profileModalOverlay');
+    const success = document.getElementById('profileSuccess');
+    const error = document.getElementById('profileError');
+    if (success) success.style.display = 'none';
+    if (error) error.style.display = 'none';
+    
+    // reload just in case
+    loadUserProfile();
+    
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function closeUserProfile() {
+    const overlay = document.getElementById('profileModalOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+let cropper = null;
+let currentCroppedBlob = null;
+
+function previewProfileImage(event) {
+    const input = event.target;
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const cropperModal = document.getElementById('cropperModal');
+            const cropperImage = document.getElementById('cropperImage');
+            
+            // Set image source
+            cropperImage.src = e.target.result;
+            cropperModal.style.display = 'flex';
+            
+            // Reset previous cropper if exists
+            if (cropper) {
+                cropper.destroy();
+            }
+            
+            // Initialize cropper
+            cropper = new Cropper(cropperImage, {
+                aspectRatio: 1,
+                viewMode: 1,
+                dragMode: 'move',
+                autoCropArea: 1,
+                restore: false,
+                guides: true,
+                center: true,
+                highlight: false,
+                cropBoxMovable: true,
+                cropBoxResizable: true,
+                toggleDragModeOnDblclick: false,
+            });
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function cancelCrop() {
+    document.getElementById('cropperModal').style.display = 'none';
+    if(cropper) { cropper.destroy(); cropper = null; }
+    document.getElementById('profile_picture').value = '';
+}
+
+function applyCrop() {
+    if (!cropper) return;
+    
+    // Get cropped canvas
+    const canvas = cropper.getCroppedCanvas({
+        width: 256,
+        height: 256,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+    });
+    
+    // Convert to blob
+    canvas.toBlob((blob) => {
+        currentCroppedBlob = blob;
+        
+        // Show preview in User Profile Modal
+        const url = URL.createObjectURL(blob);
+        const preview = document.getElementById('profileModalImagePreview');
+        const initials = document.getElementById('profileModalInitials');
+        
+        preview.src = url;
+        preview.style.display = 'block';
+        initials.style.display = 'none';
+        
+        // Cleanup and close cropper modal
+        document.getElementById('cropperModal').style.display = 'none';
+        cropper.destroy();
+        cropper = null;
+    }, 'image/png');
+}
+
+async function saveUserProfile(event) {
+    event.preventDefault();
+
+    const successBox = document.getElementById('profileSuccess');
+    const errorBox = document.getElementById('profileError');
+    const btn = document.getElementById('profileSaveBtn');
+    
+    successBox.style.display = 'none';
+    errorBox.style.display = 'none';
+    
+    const originalText = btn.textContent;
+    btn.textContent = 'Saving...';
+    btn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('display_name', document.getElementById('p_display_name').value);
+    
+    if (currentCroppedBlob) {
+        formData.append('profile_picture', currentCroppedBlob, 'profile.png');
+    }
+
+    try {
+        const res = await fetch('api/profile.php', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            updateProfileUI(data.profile);
+            successBox.textContent = 'Profile updated successfully!';
+            successBox.style.display = 'block';
+            currentCroppedBlob = null; // Clear blob after successful save
+            
+            // Allow some time for user to read success msg before optionally closing
+            setTimeout(() => {
+                successBox.style.display = 'none';
+                closeUserProfile();
+            }, 1500);
+        } else {
+            errorBox.textContent = data.message || 'Failed to save profile.';
+            errorBox.style.display = 'block';
+        }
+    } catch (e) {
+        errorBox.textContent = 'Network or server error.';
+        errorBox.style.display = 'block';
+        console.error(e);
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+// Academic Term Helpers
+async function syncAcademicTerms() {
+    try {
+        const res = await fetch('api/terms.php');
+        const terms = await res.json();
+        const select = document.getElementById('activeTermSelect');
+        if (select) {
+            select.innerHTML = terms.map(t => `<option value="${t.id}" ${t.id == window.activeTermId ? 'selected' : ''}>${t.name}</option>`).join('');
+            
+            // Update printed term as well
+            const activeTermName = terms.find(t => t.id == window.activeTermId)?.name || 'Unknown Semester';
+            const printTermEl = document.getElementById('printDocTerm');
+            if (printTermEl) printTermEl.textContent = activeTermName;
+        }
+    } catch (e) {
+        console.error("Failed to sync academic terms", e);
+    }
+}
+
+function updateActiveTerm(id) {
+    window.activeTermId = id;
+    localStorage.setItem('activeTermId', id);
+    
+    // Refresh all data to reflect the new semester
+    loadCounts();
+    showSection(currentSection);
+    
+    // Update labels
+    syncAcademicTerms();
+}
+
+// --- Report Center Logic ---
+let currentExportFormat = 'excel';
+
+function openReportModal(defaultType = 'schedules') {
+    document.getElementById('reportType').value = defaultType;
+    document.getElementById('reportModalOverlay').style.display = 'flex';
+    setExportFormat('excel'); // default
+}
+
+function closeReportModal() {
+    document.getElementById('reportModalOverlay').style.display = 'none';
+}
+
+function setExportFormat(format) {
+    currentExportFormat = format;
+    document.querySelectorAll('.export-format-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.id === `fmt_${format}`);
+        btn.style.borderColor = btn.id === `fmt_${format}` ? '#fbbf24' : '#e2e8f0';
+    });
+}
+
+async function generateReport(e) {
+    if (e) e.preventDefault();
+    const type = document.getElementById('reportType').value;
+    const format = currentExportFormat;
+    
+    let docTitle = "";
+    if (type === 'schedules') docTitle = "Official Schedule Report";
+    if (type === 'faculty') docTitle = "Faculty Member List";
+    if (type === 'laboratories') docTitle = "Visual Lab Schedules";
+    if (type === 'subjects') docTitle = "Infrastructure & Subject List";
+
+    if (format === 'print') {
+        const titleEl = document.getElementById('printDocTitle');
+        if (titleEl) titleEl.textContent = docTitle;
+        closeReportModal();
+        window.print();
+        return;
+    }
+
+    // Logic for Excel or Word
+    let dataToExport = [];
+    let headers = [];
+
+    try {
+        if (type === 'schedules') {
+            const res = await fetch(`api/schedules.php?term_id=${window.activeTermId}`);
+            dataToExport = await res.json();
+            headers = ['Day', 'Start Time', 'End Time', 'Faculty', 'Subject Code', 'Subject Name', 'Room', 'Section'];
+            dataToExport = dataToExport.map(s => [s.day, s.start_time, s.end_time, s.faculty_name, s.subject_code, s.subject_name, s.room_name, s.section]);
+        } else if (type === 'faculty') {
+            const res = await fetch('api/faculty.php');
+            dataToExport = await res.json();
+            headers = ['Name', 'Status', 'Employment', 'Campus'];
+            dataToExport = dataToExport.map(f => [f.name, f.status, f.employment_status, f.designated_campus]);
+        } else if (type === 'laboratories') {
+            const res = await fetch(`api/lab_schedule.php?term_id=${window.activeTermId}`);
+            const grouped = await res.json();
+            headers = ['Room', 'Day', 'Time', 'Subject', 'Section', 'Teacher'];
+            Object.keys(grouped).forEach(room => {
+                grouped[room].forEach(s => {
+                    dataToExport.push([room, s.day, `${s.start_time} - ${s.end_time}`, s.subject_name, s.section, s.faculty_name]);
+                });
+            });
+        } else if (type === 'subjects') {
+            const res = await fetch(`api/subjects.php?term_id=${window.activeTermId}`);
+            dataToExport = await res.json();
+            headers = ['Subject Code', 'Subject Name', 'Units'];
+            dataToExport = dataToExport.map(s => [s.code, s.name, s.units]);
+        }
+
+        if (dataToExport.length === 0) {
+            alert("No data available to export.");
+            return;
+        }
+
+        if (format === 'excel') {
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...dataToExport]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Report");
+            XLSX.writeFile(wb, `${docTitle.replace(/\s+/g, '_')}.xlsx`);
+        } else if (format === 'word') {
+            let tableHtml = `<table border="1" style="border-collapse:collapse; width:100%; font-family: 'Arial', sans-serif;"><thead><tr style="background:#1e1b4b; color:white;">`;
+            headers.forEach(h => tableHtml += `<th style="padding:10px; border:1px solid #334155;">${h}</th>`);
+            tableHtml += `</tr></thead><tbody>`;
+            dataToExport.forEach((row, idx) => {
+                const bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+                tableHtml += `<tr style="background:${bg};">`;
+                row.forEach(cell => tableHtml += `<td style="padding:8px; border:1px solid #e2e8f0; font-size:10pt;">${cell}</td>`);
+                tableHtml += `</tr>`;
+            });
+            tableHtml += `</tbody></table>`;
+
+            const currentTermName = document.getElementById('activeTermLabel')?.textContent || '1st Semester 2024-2025';
+
+            const content = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head><meta charset='utf-8'><title>${docTitle}</title>
+                <style>
+                    body { font-family: 'Times New Roman', serif; margin: 1in; }
+                    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e1b4b; padding-bottom: 10px; }
+                    .univ { font-size: 22pt; font-weight: bold; color: #1e1b4b; text-transform: uppercase; margin: 0; }
+                    .dept { font-size: 14pt; color: #64748b; margin: 5px 0; }
+                    .report-tag { font-size: 16pt; font-weight: bold; margin-top: 15px; color: #fbbf24; background: #1e1b4b; display: inline-block; padding: 5px 20px; border-radius: 5px; }
+                </style>
+                </head><body>
+                <div class="header">
+                    <p class="univ">Leyte Normal University</p>
+                    <p class="dept">Information Technology Department</p>
+                    <p style="margin: 2px 0;">Tacloban City, Leyte</p>
+                    <div class="report-tag">${docTitle}</div>
+                    <p style="font-weight: bold; margin-top: 10px;">${currentTermName}</p>
+                </div>
+                <p style="font-size: 9pt; color: #64748b; margin-bottom: 15px;">Generated on: ${new Date().toLocaleString()}</p>
+                ${tableHtml}
+                <div style="margin-top: 50px;">
+                    <p style="font-weight: bold;">Certified Correct:</p>
+                    <br><br>
+                    <p style="border-top: 1px solid black; width: 250px; text-align: center;">Department Head / Coordinator</p>
+                </div>
+                </body></html>`;
+
+            const blob = new Blob(['\ufeff', content], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${docTitle.replace(/\s+/g, '_')}.doc`;
+            link.click();
+        }
+        
+        closeReportModal();
+
+    } catch (err) {
+        console.error('Report Generation Failed:', err);
+        alert('Failed to generate report.');
+    }
+}
+
+async function promptNewTerm() {
+    const name = prompt("Enter the name for the new semester (e.g. 2nd Sem 2025-2026):");
+    if (!name) return;
+    
+    try {
+        const res = await fetch('api/terms.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert("New semester added successfully!");
+            syncAcademicTerms();
+        } else {
+            alert("Error: " + data.message);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Failed to add semester.");
+    }
+}
+
+async function promptNewCurriculum() {
+    const name = prompt("Enter the name for the new curriculum (e.g. New BSIT Curriculum):");
+    if (!name) return;
+    
+    try {
+        const res = await fetch('api/curricula.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert("New curriculum added successfully!");
+        } else {
+            alert("Error: " + data.message);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Failed to add curriculum.");
+    }
+}
