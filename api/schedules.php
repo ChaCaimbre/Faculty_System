@@ -127,7 +127,19 @@ switch ($method) {
             $updates[] = "subject_id = $subject_id";
         }
 
-        // Handle faculty change
+        // Handle room change
+        if (!empty($data['room_name'])) {
+            $r_name = $db->real_escape_string($data['room_name']);
+            $rcheck = $db->query("SELECT id FROM rooms WHERE name = '$r_name' AND user_id = $uid");
+            if ($rcheck->num_rows > 0) {
+                $rid = intval($rcheck->fetch_assoc()['id']);
+            } else {
+                $db->query("INSERT INTO rooms (name, user_id) VALUES ('$r_name', $uid)");
+                $rid = $db->insert_id;
+            }
+            $updates[] = "room_id = $rid";
+        }
+
         if (!empty($data['faculty_id']) && intval($data['faculty_id']) > 0) {
             $updates[] = "faculty_id = " . intval($data['faculty_id']);
         } elseif (!empty($data['faculty_name'])) {

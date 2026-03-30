@@ -1225,7 +1225,7 @@ tbody tr:nth-child(n+6) { animation-delay: 0.3s; }
     overflow: hidden;
 }
 
-/* ΓöÇΓöÇ Manage Teachers Table ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */
+/* ── Manage Teachers Table ─────────────────────────────── */
 
 /* Header alignment */
 .teacher-manage-table th {
@@ -1241,7 +1241,7 @@ tbody tr:nth-child(n+6) { animation-delay: 0.3s; }
     border-bottom: 1px solid #f1f5f9 !important;
 }
 
-/* Col 1 ΓÇô Teacher Name */
+/* Col 1 – Teacher Name */
 .teacher-manage-table .teacher-name-cell,
 .teacher-manage-table td:nth-child(1) {
     width: 14%;
@@ -1251,7 +1251,7 @@ tbody tr:nth-child(n+6) { animation-delay: 0.3s; }
     color: #1e1b4b;
 }
 
-/* Col 2 ΓÇô Campus */
+/* Col 2 – Campus */
 .teacher-manage-table .campus-cell,
 .teacher-manage-table td:nth-child(2) {
     width: 14%;
@@ -1260,7 +1260,7 @@ tbody tr:nth-child(n+6) { animation-delay: 0.3s; }
     color: #1e1b4b;
 }
 
-/* Col 3 ΓÇô Employment Status */
+/* Col 3 – Employment Status */
 .teacher-manage-table .status-cell,
 .teacher-manage-table td:nth-child(3) {
     width: 12%;
@@ -1269,7 +1269,7 @@ tbody tr:nth-child(n+6) { animation-delay: 0.3s; }
     color: #1e1b4b;
 }
 
-/* Col 4 ΓÇô Subjects (widest) ΓÇö always left regardless of row position */
+/* Col 4 – Subjects (widest) — always left regardless of row position */
 .teacher-manage-table .subject-cell,
 .teacher-manage-table td.subject-cell,
 .teacher-manage-table td:nth-child(4) {
@@ -1283,7 +1283,7 @@ tbody tr:nth-child(n+6) { animation-delay: 0.3s; }
     white-space: normal;
 }
 
-/* Col 5 ΓÇô Section(s) */
+/* Col 5 – Section(s) */
 .teacher-manage-table .section-cell,
 .teacher-manage-table td.section-cell,
 .teacher-manage-table td:nth-child(5) {
@@ -1293,7 +1293,7 @@ tbody tr:nth-child(n+6) { animation-delay: 0.3s; }
     color: #1e1b4b;
 }
 
-/* Col 6 ΓÇô Action */
+/* Col 6 – Action */
 .teacher-manage-table .action-cell,
 .teacher-manage-table td.action-cell,
 .teacher-manage-table td:nth-child(6),
@@ -1306,7 +1306,7 @@ tbody tr:nth-child(n+6) { animation-delay: 0.3s; }
 .teacher-manage-table thead th:first-child  { border-top-left-radius: 10px; }
 .teacher-manage-table thead th:last-child   { border-top-right-radius: 10px; border-right: none; }
 
-/* Alternating column colours ΓÇö nth-child for full rows, classes for rowspan continuation rows */
+/* Alternating column colours — nth-child for full rows, classes for rowspan continuation rows */
 .teacher-manage-table tbody td:nth-child(1),
 .teacher-manage-table tbody td:nth-child(3),
 .teacher-manage-table tbody td:nth-child(4),
@@ -1344,7 +1344,7 @@ tbody tr:nth-child(n+6) { animation-delay: 0.3s; }
     gap: 1rem;
 }
 
-/* ΓöÇΓöÇ Subject cell title layout ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */
+/* ── Subject cell title layout ───────────────────────────── */
 .teacher-manage-table .subject-cell {
     display: table-cell; /* keep as td */
     flex-direction: unset;
@@ -1371,7 +1371,7 @@ tbody tr:nth-child(n+6) { animation-delay: 0.3s; }
     font-style: italic;
 }
 
-/* ΓöÇΓöÇ Consistent font across all table cells ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */
+/* ── Consistent font across all table cells ──────────────── */
 .teacher-manage-table td,
 .teacher-manage-table th {
     font-family: 'Inter', sans-serif;

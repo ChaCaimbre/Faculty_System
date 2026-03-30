@@ -3,7 +3,7 @@ header("Content-Type: application/json");
 require_once '../config.php';
 $db = getDB();
 
-// ─── Helper: get or create records ───────────────────────────────────────────
+// â”€â”€â”€ Helper: get or create records â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getRoomId($db, $name) {
     $n = $db->real_escape_string($name);
@@ -42,11 +42,11 @@ function addSched($db, $room, $day, $start, $end, $subCode, $section, $faculty) 
                 VALUES ($faculty_id, $subject_id, $room_id, '$day_esc', '$sec', '$s', '$e')");
 }
 
-// ─── Clear existing schedules ─────────────────────────────────────────────────
+// â”€â”€â”€ Clear existing schedules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 $db->query("DELETE FROM schedules");
 $db->query("ALTER TABLE schedules AUTO_INCREMENT = 1");
 
-// ─── COMPLAB1 ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ COMPLAB1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // MTH = Monday + Thursday | TFRI = Tuesday + Friday
 foreach (['Monday','Thursday'] as $d) {
     addSched($db,$d=='Monday'?'COMPLAB1':'COMPLAB1',$d,'07:30','09:00','IT-128','AI32','AMAGO');
@@ -76,7 +76,7 @@ addSched($db,'COMPLAB1','Wednesday','17:00','19:00','IT-112','AI24','COMBINIDO')
 // SAT
 addSched($db,'COMPLAB1','Saturday','07:30','09:30','IT-127','AI35','MURILLO');
 
-// ─── COMPLAB2 ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ COMPLAB2 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 foreach (['Monday','Thursday'] as $d) {
     addSched($db,'COMPLAB2',$d,'07:30','09:00','IT-107','AI13','GALBAN');
     addSched($db,'COMPLAB2',$d,'09:00','10:30','IT-107L','AI13','GALBAN');
@@ -104,7 +104,7 @@ addSched($db,'COMPLAB2','Wednesday','17:00','19:00','IT-127','AI31','CELESTIAL')
 // SAT
 addSched($db,'COMPLAB2','Saturday','09:00','11:00','IT-129','AI35','DIAZ');
 
-// ─── COMPLAB3 ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ COMPLAB3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 foreach (['Monday','Thursday'] as $d) {
     addSched($db,'COMPLAB3',$d,'07:30','09:00','IT-128','AI31','AMAGO');
     addSched($db,'COMPLAB3',$d,'09:00','10:30','IT-128L','AI34','FUNCION');
@@ -130,7 +130,7 @@ addSched($db,'COMPLAB3','Wednesday','13:00','15:00','IT-115','AI25','FERNANDEZ')
 addSched($db,'COMPLAB3','Wednesday','15:00','17:00','TOUR-101','AI31','ALMENARIO');
 addSched($db,'COMPLAB3','Wednesday','17:00','19:00','TOUR-101','AI35','MEMORACION');
 
-// ─── COMPLAB4 ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ COMPLAB4 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 foreach (['Monday','Thursday'] as $d) {
     addSched($db,'COMPLAB4',$d,'07:30','09:00','IT-105L','AI33','CABANGON');
     addSched($db,'COMPLAB4',$d,'09:00','10:30','IT-112L','AI22','ORMENETA');
@@ -153,7 +153,7 @@ addSched($db,'COMPLAB4','Wednesday','10:00','12:00','IT-112','AI25','AMAGO');
 addSched($db,'COMPLAB4','Wednesday','13:00','15:00','IT-127','AI34','SAMPAYAN');
 addSched($db,'COMPLAB4','Wednesday','15:00','17:00','IT-127','AI34','SAMPAYAN');
 
-// ─── COMPLAB5 (CON 103) ───────────────────────────────────────────────────────
+// â”€â”€â”€ COMPLAB5 (CON 103) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 foreach (['Monday','Thursday'] as $d) {
     addSched($db,'COMPLAB5 (CON 103)',$d,'07:30','09:00','GE-113','AS21','VERECIO');
     addSched($db,'COMPLAB5 (CON 103)',$d,'09:00','10:30','GE-113','MH21','TIQUEN');

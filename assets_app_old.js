@@ -1,6 +1,3 @@
-// Global State
-window.activeTermId = localStorage.getItem('activeTermId') || '1';
-
 // Auth State Management
 async function checkAuth() {
     startClock(); // Start immediately so user sees "life"
@@ -141,17 +138,6 @@ document.addEventListener('click', function (e) {
         menu.style.display = 'none';
     }
 });
-
-// Time Formatter (12-hour)
-function formatTo12Hour(t) {
-    if (!t) return '---';
-    const parts = t.split(':');
-    let h = parseInt(parts[0]);
-    const m = parts[1].substring(0, 2);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    h = h % 12 || 12;
-    return `${h}:${m} ${ampm}`;
-}
 
 // Modal Logic
 let currentSection = 'faculty';
@@ -476,7 +462,7 @@ function confirmTime(type) {
     const displayText = String(hr).padStart(2, '0') + ':' + String(min).padStart(2, '0') + ' ' + ampm;
     const pickerEl = document.getElementById(type + 'TimePicker');
     const displayEl = document.getElementById(type + 'TimeDisplay');
-    displayEl.textContent = '✅ ' + displayText;
+    displayEl.textContent = 'Γ£ô ' + displayText;
     displayEl.style.display = 'block';
     pickerEl.style.display = 'none';
 }
@@ -598,7 +584,7 @@ document.getElementById('modalForm')?.addEventListener('submit', async (e) => {
                 const subjCodeVal = document.getElementById('m_subject_code')?.value || '';
                 const subjNameVal = document.getElementById('m_subject_name')?.value || '';
 
-                const schedRes = await fetch(`api/schedules.php?id=${editingScheduleId}&term_id=${window.activeTermId}`, {
+                const schedRes = await fetch(`api/schedules.php?id=${editingScheduleId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -670,7 +656,6 @@ document.getElementById('modalForm')?.addEventListener('submit', async (e) => {
                             subject_code: subject,
                             subject_name: subject,
                             section: section,
-                            term_id: window.activeTermId,
                             room_name: 'TBA',
                             day: 'Monday',
                             start_time: '08:00',
@@ -712,7 +697,6 @@ document.getElementById('modalForm')?.addEventListener('submit', async (e) => {
                         faculty_id: facSaved.id,
                         subject_code: subject,
                         subject_name: subject,
-                        term_id: window.activeTermId,
                         section: section,
                         room_name: 'TBA',
                         day: 'Monday',
@@ -746,7 +730,6 @@ document.getElementById('modalForm')?.addEventListener('submit', async (e) => {
         data.faculty_id = document.getElementById('m_faculty_id').value;
         data.faculty_name = document.getElementById('m_faculty_name')?.value || '';
         data.section = document.getElementById('m_section').value;
-        data.term_id = window.activeTermId;
 
         // Read time pickers directly if the user hasn't clicked OK
         ['start', 'end'].forEach(type => {
@@ -848,7 +831,7 @@ async function loadTeacherManagementTable() {
     try {
         const [facultyRes, scheduleRes] = await Promise.all([
             fetch('api/faculty.php', { cache: 'no-store' }),
-            fetch(`api/teacher_schedule.php?term_id=${window.activeTermId}`, { cache: 'no-store' })
+            fetch('api/teacher_schedule.php', { cache: 'no-store' })
         ]);
 
         const facultyData = await facultyRes.json();
@@ -886,7 +869,7 @@ async function loadTeacherManagementTable() {
                 const groupedBySubject = {};
                 teacherSchedules.forEach(sched => {
                     const subjectDisplay = (sched.subject_name && sched.subject_name !== sched.subject_code)
-                        ? `${sched.subject_code} - ${sched.subject_name}`
+                        ? `${sched.subject_code} ΓÇô ${sched.subject_name}`
                         : sched.subject_code;
                     const key = subjectDisplay;
                     if (!groupedBySubject[key]) {
@@ -987,7 +970,7 @@ async function viewFacultyAssignments(el) {
     const subjectCode = el.dataset.subjectCode;
 
     try {
-        const res = await fetch(`api/teacher_schedule.php?term_id=${window.activeTermId}`);
+        const res = await fetch('api/teacher_schedule.php');
         const grouped = await res.json();
         const schedules = (grouped[teacherName] || []).filter(s =>
             !subjectCode || s.subject_code === subjectCode
@@ -1025,8 +1008,7 @@ function editFaculty(el) {
 }
 
 async function loadSectionData(section) {
-    const endpoint = section === 'schedules' ? `api/schedules.php?term_id=${window.activeTermId}` : `api/${section}.php`;
-    const res = await fetch(endpoint, { cache: 'no-store' });
+    const res = await fetch(`api/${section}.php`, { cache: 'no-store' });
     const data = await res.json();
     const tbody = document.querySelector(`#${section}Table tbody`);
     if (!tbody) return;
@@ -1179,7 +1161,7 @@ async function renderSchedulesVisualGrid() {
 
     const [roomsRes, schedulesRes] = await Promise.all([
             fetch('api/rooms.php', { cache: 'no-store' }),
-            fetch(`api/lab_schedule.php?term_id=${window.activeTermId}`, { cache: 'no-store' })
+            fetch('api/lab_schedule.php', { cache: 'no-store' })
         ]);
 
     const roomsData = await roomsRes.json();
@@ -1190,7 +1172,6 @@ async function renderSchedulesVisualGrid() {
     Object.values(groupedSchedules).forEach(list => {
         allSchedules = allSchedules.concat(list);
     });
-    window.allVisibleSchedules = allSchedules; // make accessible for inline edit/delete
 
     // Get unique list of labs from both sources
     const roomNames = new Set(roomsData.map(r => r.name));
@@ -1250,15 +1231,6 @@ async function renderSchedulesVisualGrid() {
         card.style.height = '540px';
         card.style.maxHeight = '540px';
         card.style.boxShadow = '0 10px 25px -5px rgba(0, 0, 0, 0.05)';
-        card.style.cursor = 'pointer';
-        card.style.transition = 'box-shadow 0.2s, transform 0.15s';
-        card.onmouseenter = () => { card.style.boxShadow = '0 16px 35px -5px rgba(0,0,0,0.13)'; card.style.transform = 'translateY(-2px)'; };
-        card.onmouseleave = () => { card.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.05)'; card.style.transform = ''; };
-        card.onclick = (e) => {
-            // Don't open modal if user clicked an action button
-            if (e.target.closest('button')) return;
-            viewLabSchedule(labName, roomSchedules, true); // allowEdit = true from Schedules section
-        };
 
         const formatSimpleTime = (t) => {
             if (!t) return '---';
@@ -1314,19 +1286,11 @@ async function renderSchedulesVisualGrid() {
                                 </div>
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
                                     <div style="display: flex; align-items: center; gap: 5px; color: #4338ca; font-weight: ${textWeight}; font-size: 0.85rem;">
-                                        👨‍🏫 ${s.faculty_name.split(' ')[0]}
+                                        ≡ƒæñ ${s.faculty_name.split(' ')[0]}
                                     </div>
                                     <div style="font-size: 0.8rem; color: #1e1b4b; font-weight: ${textWeight};">
                                         Sec: ${s.section || '---'}
                                     </div>
-                                </div>
-                                <div style="display: flex; justify-content: flex-end; gap: 0.4rem; margin-top: 8px;">
-                                    <button onclick="openInlineEditSchedule(${s.id})" title="Edit" style="background: #1e1b4b; color: white; border: none; border-radius: 7px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" onmouseover="this.style.background='#312e81'" onmouseout="this.style.background='#1e1b4b'">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                                    </button>
-                                    <button onclick="deleteScheduleItem(${s.id})" title="Delete" style="background: #ef4444; color: white; border: none; border-radius: 7px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                                    </button>
                                 </div>
                             </div>
                         `;
@@ -1348,7 +1312,7 @@ async function renderSchedulesVisualGrid() {
             <div style="display: inline-block; margin-bottom: 1rem;">
                 <div style="display: flex; align-items: center; gap: 0.6rem; color: #1e1b4b; border-bottom: 3px solid #fbbf24; padding-bottom: 6px;">
                     <div style="background: #fbbf24; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1rem; box-shadow: 0 4px 8px rgba(251, 191, 36, 0.2);">
-                        📅
+                        ≡ƒôà
                     </div>
                     <strong style="font-size: 1rem; font-family: 'Inter', sans-serif; font-weight: 800; letter-spacing: -0.3px;">Schedules:</strong>
                 </div>
@@ -1626,8 +1590,8 @@ async function loadLabGrid() {
     const selectedTime = 'all';
 
     try {
-                const [schedRes, roomsRes] = await Promise.all([
-            fetch(`api/lab_schedule.php?term_id=${window.activeTermId}`, { cache: 'no-store' }),
+        const [schedRes, roomsRes] = await Promise.all([
+            fetch('api/lab_schedule.php', { cache: 'no-store' }),
             fetch('api/rooms.php', { cache: 'no-store' })
         ]);
         const groupedSchedules = await schedRes.json();
@@ -1759,7 +1723,7 @@ async function loadLabGrid() {
                         <div style="background: ${bg}; border: ${border}; padding: ${isUpcoming ? '0.4rem 0.6rem' : '0.6rem 0.8rem'}; border-radius: 6px; ${flexData} display: flex; flex-direction: column; justify-content: center;">
                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
                                 <span style="font-size: 0.7rem; font-weight: 700; color: ${titleColor}; letter-spacing: 0.05em;">${statusLabel}</span>
-                                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">${formatTo12Hour(cls.start_time)} - ${formatTo12Hour(cls.end_time)}</span>
+                                <span style="font-size: 0.75rem; font-weight: 600; color: #475569;">${cls.start_time.substring(0, 5)} - ${cls.end_time.substring(0, 5)}</span>
                             </div>
                             <strong style="color: #1e293b; font-size: ${isUpcoming ? '0.9rem' : '1.1rem'}; line-height: 1.3;">${cls.subject_code} ${cls.subject_name}</strong>
                             
@@ -1769,7 +1733,7 @@ async function loadLabGrid() {
                                     <span style="font-weight: 700; color: #1e1b4b;">Section: ${cls.section || 'N/A'}</span>
                                 </div>
                                 <div style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #cbd5e1; font-size: 0.85rem; font-weight: 800; color: #4f46e5; display: flex; align-items: center; gap: 4px;">
-                                    <span style="font-size: 0.7rem; opacity: 0.7;">👨‍🏫</span> ${cls.faculty_name}
+                                    <span style="font-size: 0.7rem; opacity: 0.7;">≡ƒæñ</span> ${cls.faculty_name}
                                 </div>
                             </div>
                         </div>
@@ -1799,7 +1763,7 @@ async function loadLabGrid() {
             card.innerHTML = `
                 <h3 style="font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 1rem; color: #1e1b4b; height: 3.5rem; overflow: hidden; display: flex; align-items: center;">${labName.replace('COMPLAB', 'COMLAB')}</h3>
                 <div class="schedule-label" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem;">
-                    <div class="icon">📅</div>
+                    <div class="icon">≡ƒôà</div>
                     <strong style="font-size: 0.9rem;">${selectedDay === 'all' ? 'Schedules:' : selectedDay + ' Schedule:'}</strong>
                 </div>
                 
@@ -1915,7 +1879,7 @@ async function loadTeacherGrid() {
     if (!grid) return;
 
     try {
-        const res = await fetch(`api/teacher_schedule.php?term_id=${window.activeTermId}`, { cache: 'no-store' });
+        const res = await fetch('api/teacher_schedule.php', { cache: 'no-store' });
         const groupedSchedules = await res.json();
 
         const rawNames = Object.keys(groupedSchedules);
@@ -2030,7 +1994,7 @@ function renderSlot(classData, label, isTeacher = false) {
         <div style="background: #e5e7eb; padding: 0.8rem; border-radius: 8px;">
             <div style="display: flex; flex-direction: column; gap: 4px;">
                 <p style="font-size: 0.75rem; color: #4f46e5; font-weight: 800; margin-bottom: 0.2rem; line-height: 1.2;">${label.toUpperCase()}</p>
-                <p style="font-size: 0.8rem; color: #475569;"><strong>Time:</strong> ${formatTo12Hour(classData.start_time)} - ${formatTo12Hour(classData.end_time)}</p>
+                <p style="font-size: 0.8rem; color: #475569;"><strong>Time:</strong> ${classData.start_time.substring(0, 5)} - ${classData.end_time.substring(0, 5)}</p>
                 <p style="font-size: 0.8rem; color: #475569;"><strong>Section:</strong> ${classData.section || 'N/A'}</p>
                 <p style="font-size: 0.8rem; color: #475569; border-top: 1px dashed #cbd5e1; margin-top: 4px; padding-top: 4px;">
                     <strong>${isTeacher ? 'Room' : 'Teacher'}:</strong> ${isTeacher ? (classData.room_name?.replace('COMPLAB', 'COMLAB') || 'N/A') : classData.faculty_name}
@@ -2105,7 +2069,7 @@ function viewTeacherSchedule(teacherName, schedules) {
                         <span style="background: #1e1b4b; color: white; padding: 4px 0; border-radius: 20px; font-weight: 900; font-size: 0.8rem; text-align: center; width: 110px;">${s.subject_code}</span>
                         <div style="font-size: 0.95rem; font-weight: 700; color: #111827;">${s.section || '---'}</div>
                         <div style="font-size: 0.9rem; color: #374151; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">${s.day}</div>
-                        <div style="font-size: 0.9rem; color: #4b5563; font-weight: 600;">${formatTo12Hour(s.start_time)} - ${formatTo12Hour(s.end_time)}</div>
+                        <div style="font-size: 0.9rem; color: #4b5563; font-weight: 600;">${s.start_time.substring(0, 5)} - ${s.end_time.substring(0, 5)}</div>
                         <div style="font-size: 0.9rem; color: #6b7280; font-weight: 500;">${s.room_name?.replace('COMPLAB', 'COMLAB')}</div>
                     </div>
                 `;
@@ -2119,10 +2083,7 @@ function viewTeacherSchedule(teacherName, schedules) {
     modal.style.display = 'flex';
 }
 
-function viewLabSchedule(labName, schedules, allowEdit = false) {
-    window.currentViewingLabName = labName;
-    window.labModalAllowEdit = allowEdit;
-    window.modalSchedules = schedules;
+function viewLabSchedule(labName, schedules) {
     const modal = document.getElementById('labModal');
     const title = document.getElementById('labModalTitle');
     const content = document.getElementById('labModalContent');
@@ -2218,13 +2179,6 @@ function renderModalGrid(schedules, container, isTeacherView) {
         container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #64748b;">No classes match this filter.</p>';
         return;
     }
-    const showEditBtns = window.labModalAllowEdit !== false;
-
-    // Real-time: figure out today and current time for ONGOING detection
-    const now = new Date();
-    const todayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][now.getDay()];
-    const currentTimeStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-
     const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const groupedByDay = {};
     schedules.forEach(s => {
@@ -2237,27 +2191,29 @@ function renderModalGrid(schedules, container, isTeacherView) {
         const dayScheds = groupedByDay[day] || [];
         if (dayScheds.length > 0) {
             dayScheds.sort((a, b) => a.start_time.localeCompare(b.start_time));
-
-            // Highlight the day header if it's today
-            const isToday = (day === todayName);
-            const dayHeaderStyle = isToday
-                ? 'color: #d97706; border-bottom: 2px solid #fbbf24; display: inline-block; margin-bottom: 1rem; padding-bottom: 0.2rem; font-weight: 900;'
-                : 'color: #4f46e5; border-bottom: 2px solid #1e1b4b; display: inline-block; margin-bottom: 1rem; padding-bottom: 0.2rem;';
-
             html += `
-                <div style="background: ${isToday ? '#fffbeb' : '#f8fafc'}; border-radius: 12px; padding: 1.5rem; border: 1px solid ${isToday ? '#fde68a' : '#e2e8f0'};">
-                    <h4 style="${dayHeaderStyle}">${day}${isToday ? ' <span style="font-size:0.7rem;background:#fbbf24;color:#78350f;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle;">TODAY</span>' : ''}</h4>
+                <div style="background: #f8fafc; border-radius: 12px; padding: 1.5rem; border: 1px solid #e2e8f0;">
+                    <h4 style="color: #4f46e5; border-bottom: 2px solid #1e1b4b; display: inline-block; margin-bottom: 1rem; padding-bottom: 0.2rem;">${day}</h4>
                     <div style="display: flex; flex-direction: column; gap: 0.8rem;">
             `;
             dayScheds.forEach(s => {
-                const formatTimeLocal = (t) => formatTo12Hour(t);
+                // Helper to format time for Wednesday (12-hour, no AM/PM, no leading zero)
+                const formatTime = (t) => {
+                    if (day === 'Wednesday') {
+                        let [h, m] = t.split(':');
+                        h = parseInt(h);
+                        if (h > 12) h -= 12;
+                        return `${h}:${m}`;
+                    }
+                    return t.substring(0, 5);
+                };
 
-                // Render VACANT card
+                // Render VACANT card if this is a VACANT slot
                 if (s.subject_code === 'VACANT') {
                     html += `
                         <div style="background: white; padding: 0.8rem; border-radius: 8px; border: 1px dashed #cbd5e1; text-align: center; position: relative;">
                             <span style="position: absolute; top: 0.4rem; right: 0.6rem; font-size: 0.72rem; color: #64748b; font-weight: 700; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">
-                                ${formatTimeLocal(s.start_time)} - ${formatTimeLocal(s.end_time)}
+                                ${formatTime(s.start_time)} - ${formatTime(s.end_time)}
                             </span>
                             <h3 style="font-size: 1.6rem; font-weight: 900; color: #1e1b4b; margin: 0.3rem 0 0 0; letter-spacing: 0.05em;">VACANT</h3>
                         </div>
@@ -2265,263 +2221,31 @@ function renderModalGrid(schedules, container, isTeacherView) {
                     return;
                 }
 
-                // Determine if this schedule is currently ongoing
-                const startStr = (s.start_time || '').substring(0, 5);
-                const endStr   = (s.end_time   || '').substring(0, 5);
-                const isOngoing = isToday && currentTimeStr >= startStr && currentTimeStr < endStr;
-
-                // Card styles based on ongoing status
-                const cardBg     = isOngoing ? '#fef9c3' : 'white';
-                const cardBorder = isOngoing ? '2px solid #fbbf24' : '1px solid #e5e7eb';
-                const cardShadow = isOngoing ? '0 4px 16px rgba(251,191,36,0.3)' : '0 2px 4px rgba(0,0,0,0.05)';
-                const codeBadgeBg = isOngoing ? '#1e1b4b' : '#f1f5f9';
-                const codeBadgeColor = isOngoing ? '#fbbf24' : '#1e1b4b';
-                const timeBadgeBg = isOngoing ? '#fbbf24' : '#f1f5f9';
-                const timeBadgeColor = isOngoing ? '#78350f' : '#64748b';
-
-                const ongoingBadge = isOngoing
-                    ? `<span style="display:inline-flex;align-items:center;gap:4px;background:#fbbf24;color:#78350f;font-size:0.65rem;font-weight:900;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:0.05em;">
-                           <span style="width:6px;height:6px;background:#92400e;border-radius:50%;display:inline-block;animation:pulse 1.2s infinite;"></span>ONGOING
-                       </span>`
-                    : '';
-
-                const actionBtns = showEditBtns
-                    ? `<div style="display: flex; justify-content: flex-end; gap: 0.4rem;"><button onclick="openInlineEditSchedule(${s.id})" title="Edit" style="background: #1e1b4b; color: white; border: none; border-radius: 7px; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" onmouseover="this.style.background='#312e81'" onmouseout="this.style.background='#1e1b4b'"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button><button onclick="deleteScheduleFromModal(${s.id})" title="Delete" style="background: #ef4444; color: white; border: none; border-radius: 7px; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div>`
-                    : '';
-
+                // Render Actual Schedule
                 html += `
-                    <div style="background: ${cardBg}; padding: 0.8rem; border-radius: 10px; box-shadow: ${cardShadow}; border: ${cardBorder}; position: relative;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                            <span style="background: ${codeBadgeBg}; color: ${codeBadgeColor}; font-size: 0.8rem; font-weight: 800; padding: 2px 8px; border-radius: 6px;">${s.subject_code}</span>
-                            <span style="font-size: 0.72rem; color: ${timeBadgeColor}; background: ${timeBadgeBg}; padding: 2px 7px; border-radius: 4px; font-weight: 700; white-space: nowrap; margin-left: 8px;">
-                                ${formatTimeLocal(s.start_time)} – ${formatTimeLocal(s.end_time)}
+                    <div style="background: white; padding: 0.8rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                            <strong style="color: #1e1b4b; font-size: 0.9rem;">${s.subject_code} ${s.subject_name}</strong>
+                            <span style="font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-weight: 600;">
+                                ${formatTime(s.start_time)} - ${formatTime(s.end_time)}
                             </span>
                         </div>
-                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                            <span style="color: #1e1b4b; font-size: ${isOngoing ? '1rem' : '0.9rem'}; font-weight: ${isOngoing ? '800' : '600'}; line-height:1.3;">${s.subject_name}</span>
-                            ${ongoingBadge}
-                        </div>
-                        <p style="font-size: 0.8rem; color: #475569; margin: 3px 0;"><strong>Section:</strong> ${s.section || 'N/A'}</p>
-                        <p style="font-size: 0.8rem; color: #4f46e5; font-weight: 700; border-top: 1px dashed ${isOngoing ? '#fbbf24' : '#cbd5e1'}; margin-top: 5px; padding-top: 5px; margin-bottom: ${showEditBtns ? '0.5rem' : '0'}; display: flex; align-items: center; gap: 4px;">
-                            ${isTeacherView ? 'Room: ' + s.room_name?.replace('COMPLAB', 'COMLAB') : 'Teacher: <span style="font-size: 0.9rem; opacity: 0.8;">👨‍🏫</span> ' + s.faculty_name}
+                        <p style="font-size: 0.8rem; color: #475569;"><strong>Section:</strong> ${s.section || 'N/A'}</p>
+                        <p style="font-size: 0.8rem; color: #4f46e5; font-weight: 700; border-top: 1px dashed #cbd5e1; margin-top: 5px; padding-top: 5px;">
+                            ${isTeacherView ? 'Room: ' + s.room_name?.replace('COMPLAB', 'COMLAB') : 'Teacher: ' + s.faculty_name}
                         </p>
-                        ${actionBtns}
                     </div>
                 `;
             });
-            html += '</div></div>';
+            html += '</div></div > ';
         }
     });
     html += '</div>';
-
-    // Inject pulse animation if not already present
-    if (!document.getElementById('ongoingPulseStyle')) {
-        const style = document.createElement('style');
-        style.id = 'ongoingPulseStyle';
-        style.textContent = '@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.4)} }';
-        document.head.appendChild(style);
-    }
-
     container.innerHTML = html;
 }
 
 function closeLabModal() {
     document.getElementById('labModal').style.display = 'none';
-}
-
-// --- Schedule Modal Inline Edit / Delete ---
-
-async function deleteScheduleFromModal(id) {
-    if (!confirm('Are you sure you want to delete this schedule?')) return;
-    try {
-        const res = await fetch(`api/schedules.php?id=${id}`, { method: 'DELETE' });
-        const result = await res.json();
-        if (result.success) {
-            window.modalSchedules = (window.modalSchedules || []).filter(s => s.id != id);
-            const gridContainer = document.getElementById('modalGridContainer');
-            if (gridContainer) renderModalGrid(window.modalSchedules, gridContainer, window.modalIsTeacherView);
-            loadCounts();
-            renderSchedulesVisualGrid();
-            loadLabGrid();
-        } else {
-            alert('Failed to delete: ' + (result.error || 'Unknown error'));
-        }
-    } catch (e) {
-        console.error(e);
-        alert('Network error. Failed to delete schedule.');
-    }
-}
-
-async function openInlineEditSchedule(id) {
-    // Search in both modal schedules and the schedules visual grid cache
-    const s = (window.modalSchedules?.find(sch => sch.id == id))
-           ?? (window.allVisibleSchedules?.find(sch => sch.id == id));
-    if (!s) { alert('Schedule not found'); return; }
-
-    document.getElementById('schedEditOverlay')?.remove();
-
-    // Fetch faculty list for dropdown
-    let facultyList = [];
-    try {
-        const fr = await fetch('api/faculty.php', { cache: 'no-store' });
-        facultyList = await fr.json();
-    } catch(e) { console.warn('Could not load faculty', e); }
-
-    const parseTime = (t) => {
-        if (!t) return { hr: 7, min: 0, ampm: 'AM' };
-        const [h, m] = t.split(':').map(Number);
-        return { hr: h % 12 || 12, min: m, ampm: h >= 12 ? 'PM' : 'AM' };
-    };
-    const st = parseTime(s.start_time);
-    const et = parseTime(s.end_time);
-    const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-    const mkHrs = (sel) => [...Array(12)].map((_,i) => `<option value="${i+1}" ${sel===i+1?'selected':''}>` + String(i+1).padStart(2,'0') + `</option>`).join('');
-    const mkMins = (sel) => [...Array(60)].map((_,i) => `<option value="${i}" ${sel===i?'selected':''}>`  + String(i).padStart(2,'0')  + `</option>`).join('');
-    const timePicker = (pfx, t) => `
-        <div style="display:flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;">
-            <select id="${pfx}_hr"   style="background:transparent;border:none;font-size:0.95rem;font-weight:600;color:#1e1b4b;width:34px;appearance:none;text-align:center;">${mkHrs(t.hr)}</select>
-            <span style="font-weight:700;color:#64748b;">:</span>
-            <select id="${pfx}_min"  style="background:transparent;border:none;font-size:0.95rem;font-weight:600;color:#1e1b4b;width:34px;appearance:none;text-align:center;">${mkMins(t.min)}</select>
-            <select id="${pfx}_ampm" style="background:#e2e8f0;border:none;padding:3px 6px;font-size:0.8rem;font-weight:700;color:#1e1b4b;border-radius:6px;appearance:none;margin-left:2px;">
-                <option value="AM" ${t.ampm==='AM'?'selected':''}>AM</option>
-                <option value="PM" ${t.ampm==='PM'?'selected':''}>PM</option>
-            </select>
-        </div>`;
-
-    // Build faculty dropdown (match by name)
-    const currentFacultyId = s.faculty_id || '';
-    let facultyOpts = `<option value="">-- Select Teacher --</option>`;
-    facultyList.forEach(f => {
-        const sel = (f.id == currentFacultyId || f.name === s.faculty_name) ? 'selected' : '';
-        facultyOpts += `<option value="${f.id}" ${sel}>${f.name}</option>`;
-    });
-
-    const overlay = document.createElement('div');
-    overlay.id = 'schedEditOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:3100;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(4px);overflow-y:auto;';
-    overlay.innerHTML = `
-        <div style="width:90%;max-width:500px;background:white;border-radius:16px;padding:2rem;box-shadow:0 25px 50px rgba(0,0,0,0.25);margin:auto;">
-            <h3 style="font-family:'Playfair Display',serif;color:#1e1b4b;font-size:1.5rem;margin:0 0 1.5rem;text-align:center;">Edit Schedule</h3>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-                <div class="form-group" style="margin:0;">
-                    <label>Subject Code</label>
-                    <input type="text" id="sei_subject_code" value="${s.subject_code || ''}" placeholder="e.g. IT-128" style="font-family:'Inter',sans-serif;">
-                </div>
-                <div class="form-group" style="margin:0;">
-                    <label>Section</label>
-                    <input type="text" id="sei_section" value="${s.section || ''}" placeholder="e.g. AI32" style="font-family:'Inter',sans-serif;">
-                </div>
-            </div>
-
-            <div class="form-group" style="margin-bottom:1rem;">
-                <label>Subject Name</label>
-                <input type="text" id="sei_subject_name" value="${s.subject_name || ''}" placeholder="e.g. Capstone Project I" style="font-family:'Inter',sans-serif;">
-            </div>
-
-            <div class="form-group" style="margin-bottom:1rem;">
-                <label>Teacher</label>
-                <select id="sei_faculty_id" style="font-family:'Inter',sans-serif;">${facultyOpts}</select>
-            </div>
-
-            <div class="form-group" style="margin-bottom:1rem;">
-                <label>Day</label>
-                <select id="sei_day" style="font-family:'Inter',sans-serif;">${days.map(d=>`<option value="${d}"${s.day===d?' selected':''}>${d}</option>`).join('')}</select>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
-                <div class="form-group" style="margin:0;"><label>Start Time</label>${timePicker('sei_start', st)}</div>
-                <div class="form-group" style="margin:0;"><label>End Time</label>${timePicker('sei_end',   et)}</div>
-            </div>
-
-            <div id="sei_error" style="display:none;padding:8px;margin-bottom:1rem;border-radius:8px;background:#fee2e2;border:1px solid #f87171;color:#b91c1c;font-size:0.85rem;font-weight:600;"></div>
-            <div style="display:flex;gap:0.8rem;justify-content:center;">
-                <button onclick="document.getElementById('schedEditOverlay').remove()" style="background:#f1f5f9;color:#475569;padding:0.6rem 2rem;border-radius:50px;font-weight:600;border:none;cursor:pointer;">Cancel</button>
-                <button onclick="saveInlineEditSchedule(${id})" style="background:#1e1b4b;color:white;padding:0.6rem 2.5rem;border-radius:50px;font-weight:700;border:none;cursor:pointer;">Save Changes</button>
-            </div>
-        </div>
-    `;
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-}
-
-async function saveInlineEditSchedule(id) {
-    const subject_code = document.getElementById('sei_subject_code').value.trim();
-    const subject_name = document.getElementById('sei_subject_name').value.trim();
-    const faculty_id   = document.getElementById('sei_faculty_id').value;
-    const day          = document.getElementById('sei_day').value;
-    const section      = document.getElementById('sei_section').value.trim();
-    const errBox       = document.getElementById('sei_error');
-
-    if (!subject_code) {
-        if (errBox) { errBox.textContent = 'Subject Code is required.'; errBox.style.display = 'block'; }
-        return;
-    }
-
-    const toHr24 = (pfx) => {
-        let h = parseInt(document.getElementById(pfx + '_hr').value);
-        const m = parseInt(document.getElementById(pfx + '_min').value);
-        const ap = document.getElementById(pfx + '_ampm').value;
-        if (ap === 'AM' && h === 12) h = 0;
-        else if (ap === 'PM' && h !== 12) h += 12;
-        return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-    };
-    const start_time = toHr24('sei_start');
-    const end_time   = toHr24('sei_end');
-
-    const payload = { day, section, start_time, end_time, subject_code, subject_name };
-    if (faculty_id) payload.faculty_id = faculty_id;
-
-    try {
-        const res = await fetch(`api/schedules.php?id=${id}&term_id=${window.activeTermId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const result = await res.json();
-        if (result.success) {
-            // Update local cache
-            const idx = window.modalSchedules?.findIndex(s => s.id == id);
-            if (idx !== undefined && idx >= 0) {
-                // Find faculty name from the dropdown label
-                const facSel = document.getElementById('sei_faculty_id');
-                const faculty_name = facSel?.options[facSel.selectedIndex]?.text || window.modalSchedules[idx].faculty_name;
-                window.modalSchedules[idx] = {
-                    ...window.modalSchedules[idx],
-                    day, section, start_time, end_time,
-                    subject_code, subject_name, faculty_name
-                };
-            }
-            document.getElementById('schedEditOverlay')?.remove();
-            const gridContainer = document.getElementById('modalGridContainer');
-            if (gridContainer) renderModalGrid(window.modalSchedules, gridContainer, window.modalIsTeacherView);
-            renderSchedulesVisualGrid();
-            loadLabGrid();
-        } else {
-            if (errBox) { errBox.textContent = 'Error: ' + (result.error || 'Failed to save'); errBox.style.display = 'block'; }
-        }
-    } catch (e) {
-        console.error(e);
-        if (errBox) { errBox.textContent = 'Network error. Please try again.'; errBox.style.display = 'block'; }
-    }
-}
-
-async function deleteScheduleItem(id) {
-    if (!confirm('Are you sure you want to delete this schedule?')) return;
-    try {
-        const res = await fetch(`api/schedules.php?id=${id}`, { method: 'DELETE' });
-        const result = await res.json();
-        if (result.success) {
-            loadCounts();
-            renderSchedulesVisualGrid();
-            loadLabGrid();
-        } else {
-            alert('Failed to delete: ' + (result.error || 'Unknown error'));
-        }
-    } catch (e) {
-        console.error(e);
-        alert('Network error. Failed to delete schedule.');
-    }
 }
 
 async function populateSubjectDropdowns() {
@@ -2559,7 +2283,6 @@ async function populateRoomDropdowns() {
             rooms.forEach(room => {
                 roomFilter.innerHTML += `<option value="${room.name}">${room.name}</option>`;
             });
-            roomFilter.innerHTML += '<option value="OTHER ROOMS">Other Rooms</option>';
             roomFilter.value = currentVal;
             if (!roomFilter.value) roomFilter.value = 'all';
         }
@@ -2592,163 +2315,3 @@ async function populateRoomDropdowns() {
 // Initialization
 checkAuth();
 populateRoomDropdowns();
-
-/* =========================================================
-   USER PROFILE & IMAGE CROPPER LOGIC
-   ========================================================= */
-
-let cropper = null;
-let currentProfileBlob = null;
-
-async function loadUserProfileData() {
-    try {
-        const res = await fetch('api/profile.php');
-        const data = await res.json();
-        if (data.success && data.profile) {
-            const p = data.profile;
-            document.getElementById('up_username').value = p.username || '';
-            document.getElementById('up_display_name').value = p.display_name || '';
-            
-            // Header display
-            const initials = (p.display_name || p.username || 'A').charAt(0).toUpperCase();
-            document.getElementById('headerProfileInitials').textContent = initials;
-            document.getElementById('userProfileInitials').textContent = initials;
-            
-            if (p.profile_picture) {
-                document.getElementById('headerProfileImage').src = p.profile_picture + '?t=' + new Date().getTime();
-                document.getElementById('headerProfileImage').style.display = 'block';
-                document.getElementById('headerProfileInitials').style.display = 'none';
-                
-                document.getElementById('userProfilePreview').src = p.profile_picture + '?t=' + new Date().getTime();
-                document.getElementById('userProfilePreview').style.display = 'block';
-                document.getElementById('userProfileInitials').style.display = 'none';
-            }
-        }
-    } catch(e) {
-        console.error("Failed to load profile", e);
-    }
-}
-
-function openUserProfile() {
-    document.getElementById('userProfileModal').style.display = 'flex';
-    document.getElementById('profileError').style.display = 'none';
-    document.getElementById('profileSuccess').style.display = 'none';
-    currentProfileBlob = null; // reset any unapplied changes
-    loadUserProfileData();
-}
-
-function closeUserProfile() {
-    document.getElementById('userProfileModal').style.display = 'none';
-}
-
-function handleProfileImageSelect(e) {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            document.getElementById('cropperImage').src = event.target.result;
-            document.getElementById('cropperModal').style.display = 'flex';
-            
-            if (cropper) {
-                cropper.destroy();
-            }
-            
-            cropper = new Cropper(document.getElementById('cropperImage'), {
-                aspectRatio: 1,
-                viewMode: 2,
-                autoCropArea: 1,
-                background: false,
-            });
-        };
-        reader.readAsDataURL(file);
-    }
-    // Reset file input
-    document.getElementById('profileImageInput').value = '';
-}
-
-function closeCropperModal() {
-    document.getElementById('cropperModal').style.display = 'none';
-    if (cropper) {
-        cropper.destroy();
-        cropper = null;
-    }
-}
-
-function applyCrop() {
-    if (!cropper) return;
-    
-    // Get cropped canvas and convert to blob
-    cropper.getCroppedCanvas({
-        width: 300,
-        height: 300,
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high',
-    }).toBlob((blob) => {
-        currentProfileBlob = blob;
-        
-        // Show preview in modal
-        const url = URL.createObjectURL(blob);
-        document.getElementById('userProfilePreview').src = url;
-        document.getElementById('userProfilePreview').style.display = 'block';
-        document.getElementById('userProfileInitials').style.display = 'none';
-        
-        closeCropperModal();
-    }, 'image/webp', 0.9);
-}
-
-async function saveUserProfile(e) {
-    e.preventDefault();
-    const errBox = document.getElementById('profileError');
-    const succBox = document.getElementById('profileSuccess');
-    errBox.style.display = 'none';
-    succBox.style.display = 'none';
-    
-    const displayName = document.getElementById('up_display_name').value;
-    
-    const formData = new FormData();
-    formData.append('display_name', displayName);
-    if (currentProfileBlob) {
-        formData.append('profile_picture', currentProfileBlob, 'profile.webp');
-    }
-    
-    try {
-        const btn = document.getElementById('profileSaveBtn');
-        btn.textContent = 'Saving...';
-        btn.disabled = true;
-        
-        const res = await fetch('api/profile.php', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await res.json();
-        
-        btn.textContent = 'Save Profile';
-        btn.disabled = false;
-        
-        if (data.success) {
-            succBox.textContent = 'Profile updated successfully!';
-            succBox.style.display = 'block';
-            currentProfileBlob = null; // reset
-            loadUserProfileData(); // reload header as well
-            setTimeout(() => {
-                succBox.style.display = 'none';
-            }, 3000);
-        } else {
-            errBox.textContent = data.message || 'Failed to update profile';
-            errBox.style.display = 'block';
-        }
-    } catch (e) {
-        console.error(e);
-        errBox.textContent = 'Network error. Try again.';
-        errBox.style.display = 'block';
-        document.getElementById('profileSaveBtn').textContent = 'Save Profile';
-        document.getElementById('profileSaveBtn').disabled = false;
-    }
-}
-
-// Ensure loadUserProfileData is called on fresh load if logged in
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.body.classList.contains('logged-in')) {
-        loadUserProfileData();
-    }
-});

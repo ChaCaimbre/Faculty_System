@@ -51,7 +51,7 @@ function addSched($db, $rid, $day, $start, $end, $subCode, $facName, $section)
         $fid = $f_res->fetch_assoc()['id'];
     }
 
-    $stmt = $db->prepare("INSERT INTO schedules (faculty_id, subject_id, room_id, day, section, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO schedules (faculty_id, subject_id, room_id, day, section, start_time, end_time, user_id, term_id) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)");
     $stmt->bind_param("iiissss", $fid, $sid, $rid, $day, $section, $start, $end);
     $stmt->execute();
     echo "Added Sched: $day $start ($section) - $subCode" . PHP_EOL;

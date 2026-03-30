@@ -43,7 +43,7 @@ function addSched($db, $room, $day, $start, $end, $subCode, $facName, $roomsMap,
     $rid = $roomsMap[$room];
     $sid = $subjectsMap[$subCode];
     $fid = $facultyMap[$facName];
-    $stmt = $db->prepare("INSERT INTO schedules (faculty_id, subject_id, room_id, day, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO schedules (faculty_id, subject_id, room_id, day, start_time, end_time, user_id, term_id) VALUES (?, ?, ?, ?, ?, ?, 1, 1)");
     $stmt->bind_param("iiisss", $fid, $sid, $rid, $day, $start, $end);
     $stmt->execute();
 }

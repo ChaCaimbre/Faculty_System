@@ -10,7 +10,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
-        $result = $db->query("SELECT * FROM rooms WHERE user_id = $uid ORDER BY name ASC");
+        $result = $db->query("SELECT * FROM rooms WHERE user_id = $uid OR user_id IS NULL ORDER BY name ASC");
         echo json_encode($result->fetch_all(MYSQLI_ASSOC));
         break;
 

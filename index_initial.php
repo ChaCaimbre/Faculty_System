@@ -1,4 +1,5 @@
-<?php session_start();
+<?php
+session_start();
 $isLoggedIn = isset($_SESSION['user_id']);
 ?>
 <!DOCTYPE html>
@@ -7,8 +8,6 @@ $isLoggedIn = isset($_SESSION['user_id']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Faculty Management System</title>
-    <!-- Cropper.js CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
     <link rel="stylesheet" href="assets/style.css?v=8.0">
 </head>
 <body class="<?php echo $isLoggedIn ? 'logged-in' : 'logged-out'; ?>">
@@ -87,23 +86,12 @@ $isLoggedIn = isset($_SESSION['user_id']);
                 <a class="nav-link" onclick="showSection('rooms')">ComLabs &amp; Subjects</a>
             </div>
             <div class="user-profile-group" style="display: flex; align-items: center; gap: 15px; justify-self: end;">
-                <!-- Term/Semester Switcher -->
-                <div class="term-switcher-container" style="position: relative; margin-right: 5px;">
-                    <select id="activeTermSelector" onchange="window.switchTerm(this.value)" style="appearance: none; background: #ffffff; border: 2px solid #1e1b4b; border-radius: 20px; padding: 5px 15px 5px 35px; font-size: 0.85rem; font-weight: 700; color: #1e1b4b; cursor: pointer; font-family: 'Inter', sans-serif; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231e1b4b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 10px center; background-size: 8px auto;">
-                        <option value="1">1st Semester 2024-2025</option>
-                        <option value="2">2nd Semester 2024-2025</option>
-                    </select>
-                    <div style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); pointer-events: none;">
-                        📅
-                    </div>
-                </div>
                 <div id="digitalClock" style="font-family: 'Playfair Display', serif; font-weight: 700; color: white; background: #1e1b4b; padding: 5px 15px; border-radius: 20px; font-size: 0.9rem; min-width: 140px; text-align: center;">00:00:00 AM</div>
-                <div class="user-profile" onclick="openUserProfile()" style="cursor: pointer; overflow: hidden; position: relative; width: 38px; height: 38px; border-radius: 50%; border: 2px solid #1e1b4b;" title="View Profile">
-                    <img id="headerProfileImage" src="" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: none;">
-                    <div id="headerProfileInitials" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; border-radius: 50%; background: #1e1b4b; color: white; font-weight: bold; font-size: 1.2rem;">A</div>
+                <div class="user-profile">
+                    <!-- Text removed to match image profile circle -->
                 </div>
                 <div class="nav-dropdown" style="position: relative;">
-                    <div class="dropdown-arrow" style="cursor: pointer; color: #1e1b4b; font-size: 0.8rem; padding: 5px 10px; border-radius: 8px; transition: all 0.2s;" onclick="toggleNavDropdown()">▼</div>
+                    <div class="dropdown-arrow" style="cursor: pointer; color: #1e1b4b; font-size: 0.8rem; padding: 5px 10px; border-radius: 8px; transition: all 0.2s;" onclick="toggleNavDropdown()">â–¼</div>
                     <div id="navDropdownMenu" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 8px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 2px solid #1e1b4b; overflow: hidden; min-width: 160px; z-index: 999;">
                         <div style="padding: 8px 0;">
                             <a onclick="openSettings()" style="display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: #1e1b4b; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: background 0.2s; text-decoration: none;">
@@ -435,58 +423,6 @@ $isLoggedIn = isset($_SESSION['user_id']);
         </div>
     </div>
 
-    <!-- User Profile Modal -->
-    <div id="userProfileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 3000; justify-content: center; align-items: center;">
-        <div class="glass-card" style="width: 100%; max-width: 450px; padding: 2.2rem; border: 1px solid #e2e8f0; border-radius: 12px; position: relative; overflow: hidden;">
-            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100px; background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);"></div>
-            
-            <button onclick="closeUserProfile()" style="position: absolute; top: 15px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); transition: all 0.2s;">✕</button>
-
-            <div style="position: relative; margin-top: 40px; display: flex; flex-direction: column; align-items: center;">
-                <div style="position: relative; width: 120px; height: 120px; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 15px rgba(0,0,0,0.1); background: white; margin-bottom: 20px;">
-                    <img id="userProfilePreview" src="" alt="Profile" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: none;">
-                    <div id="userProfileInitials" style="width: 100%; height: 100%; border-radius: 50%; background: #e2e8f0; color: #1e1b4b; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 800; font-family: 'Playfair Display', serif;">A</div>
-                    
-                    <label for="profileImageInput" style="position: absolute; bottom: 0; right: 0; background: #fbbf24; color: #1e1b4b; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 3px solid white; transition: transform 0.2s;" title="Upload new picture">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    </label>
-                    <input type="file" id="profileImageInput" accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;" onchange="handleProfileImageSelect(event)">
-                </div>
-
-                <div id="profileError" style="display: none; width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 8px; background-color: #fee2e2; border: 1px solid #f87171; color: #b91c1c; font-size: 0.85rem; font-weight: 600; text-align: center;"></div>
-                <div id="profileSuccess" style="display: none; width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 8px; background-color: #d1fae5; border: 1px solid #34d399; color: #065f46; font-size: 0.85rem; font-weight: 600; text-align: center;"></div>
-
-                <form id="userProfileForm" style="width: 100%;" onsubmit="saveUserProfile(event)">
-                    <div class="form-group" style="margin-bottom: 20px;">
-                        <label style="color: #64748b; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Username</label>
-                        <input type="text" id="up_username" readonly style="background: #f8fafc; cursor: not-allowed; border-color: #e2e8f0; color: #94a3b8; font-family: 'Inter', sans-serif;">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 25px;">
-                        <label style="color: #64748b; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Display Name</label>
-                        <input type="text" id="up_display_name" placeholder="Enter your display name" style="font-family: 'Inter', sans-serif;">
-                    </div>
-                    <button type="submit" id="profileSaveBtn" class="btn btn-primary" style="width: 100%; background: #1e1b4b; color: white; padding: 0.8rem; border-radius: 8px; font-weight: 700; font-size: 1rem; border: none; cursor: pointer; transition: background 0.2s;">Save Profile</button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Image Cropper Modal -->
-    <div id="cropperModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 3100; justify-content: center; align-items: center; flex-direction: column;">
-        <div style="width: 90%; max-width: 600px; max-height: 70vh; background: #fff; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; align-items: center;">
-            <h3 style="margin-bottom: 15px; color: #1e1b4b; font-family: 'Playfair Display', serif;">Crop Image</h3>
-            <div style="width: 100%; max-height: 50vh; overflow: hidden; display: flex; justify-content: center; background: #e2e8f0; border-radius: 8px;">
-                <img id="cropperImage" src="" style="max-width: 100%; display: block;">
-            </div>
-            <div style="display: flex; gap: 15px; margin-top: 20px;">
-                <button type="button" class="btn" style="background: #f1f5f9; color: #475569; padding: 0.6rem 2rem; border-radius: 50px; font-weight: 600; border: none; cursor: pointer;" onclick="closeCropperModal()">Cancel</button>
-                <button type="button" class="btn btn-primary" style="background: #fbbf24; color: #000; padding: 0.6rem 2.5rem; border-radius: 50px; font-weight: 700; border: none; cursor: pointer;" onclick="applyCrop()">Crop &amp; Apply</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Cropper.js JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
-    <script src="assets/app.js?v=6.0"></script>
+    <script src="assets/app.js?v=5.0"></script>
 </body>
 </html>

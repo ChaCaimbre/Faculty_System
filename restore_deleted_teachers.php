@@ -22,7 +22,7 @@ foreach ($teachersToRestore as $name) {
     if ($db->query("INSERT INTO faculty (name) VALUES ('$safeName')")) {
         $restored[] = $name . ' (id: ' . $db->insert_id . ')';
     } else {
-        $restored[] = $name . ' – ERROR: ' . $db->error;
+        $restored[] = $name . ' â€“ ERROR: ' . $db->error;
     }
 }
 
